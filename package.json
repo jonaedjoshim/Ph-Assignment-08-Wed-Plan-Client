@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@heroui/react": "^2.8.10",
+    "better-auth": "^1.7.25",
+    "dotenv": "^18.0.10",
     "framer-motion": "^14.14.0",
     "lucide-react": "^1.75.0",
     "next": "16.4.6",
