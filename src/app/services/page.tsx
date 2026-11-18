@@ -20,7 +20,7 @@ import {
   SERVICE_CATEGORIES,
   type ServiceCategory,
 } from "@/lib/service-categories";
-import { SiteHeader } from "@/components/side-header";
+import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/footer";
 
 type CategoryFilter = "All categories" | ServiceCategory;

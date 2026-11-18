@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { SiteHeader } from "../side-header";
+import { SiteHeader } from "../site-header";
 import { SiteFooter } from "../footer";
 
 type AuthMode = "sign-in" | "sign-up";

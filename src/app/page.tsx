@@ -13,7 +13,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ServiceCategory } from "@/lib/service-categories";
-import { SiteHeader } from "@/components/side-header";
+import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/footer";
 
 const categories: {
