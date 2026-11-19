@@ -81,7 +81,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           email,
           password,
           callbackURL,
-          role,
+          registrationRole: role,
           ...(role === "vendor" ? { businessName } : {}),
         };
 
