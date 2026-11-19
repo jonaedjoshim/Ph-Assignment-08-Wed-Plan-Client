@@ -7,11 +7,27 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
+type AccountRole = "customer" | "vendor" | "admin";
+
 const navigationLinks = [
   { label: "Find services", href: "/services" },
   { label: "Categories", href: "/#categories" },
   { label: "How it works", href: "/#how-it-works" },
 ];
+
+function getAccountRole(value: unknown): AccountRole | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const role = (value as Record<string, unknown>).role;
+
+  if (role === "customer" || role === "vendor" || role === "admin") {
+    return role;
+  }
+
+  return null;
+}
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -24,6 +40,11 @@ export function SiteHeader() {
     authClient.useSession();
 
   const isAuthenticated = Boolean(session?.user);
+  const role = getAccountRole(session?.user);
+  const canOpenBookings = role === "customer" || role === "vendor";
+  const visibleNavigationLinks = canOpenBookings
+    ? [...navigationLinks, { label: "My bookings", href: "/bookings" }]
+    : navigationLinks;
   const isSignInActive = pathname === "/sign-in";
   const isSignUpActive = pathname === "/sign-up";
 
@@ -71,9 +92,10 @@ export function SiteHeader() {
           aria-label="Main navigation"
           className="hidden items-center gap-8 md:flex"
         >
-          {navigationLinks.map((item) => {
+          {visibleNavigationLinks.map((item) => {
             const isActive =
-              item.href === "/services" && pathname.startsWith("/services");
+              (item.href === "/services" && pathname.startsWith("/services")) ||
+              (item.href === "/bookings" && pathname.startsWith("/bookings"));
 
             return (
               <Link
@@ -155,16 +177,27 @@ export function SiteHeader() {
               aria-label="Mobile navigation"
               className="mx-auto flex max-w-7xl flex-col gap-1 px-5 py-3 sm:px-8"
             >
-              {navigationLinks.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="rounded-xl px-3 py-3 text-sm font-medium text-stone-700 transition hover:bg-[#f5eae5] hover:text-wedplan-rose"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {visibleNavigationLinks.map((item) => {
+                const isActive =
+                  (item.href === "/services" &&
+                    pathname.startsWith("/services")) ||
+                  (item.href === "/bookings" &&
+                    pathname.startsWith("/bookings"));
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`rounded-xl px-3 py-3 text-sm font-medium transition hover:bg-[#f5eae5] hover:text-wedplan-rose ${
+                      isActive ? "text-wedplan-rose" : "text-stone-700"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
 
               {!isSessionPending && (
                 <div className="mt-2 grid grid-cols-2 gap-3 border-t border-[#eaded8] pt-4">
