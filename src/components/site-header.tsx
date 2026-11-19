@@ -50,7 +50,10 @@ export function SiteHeader() {
       ? [{ label: "Manage services", href: "/vendor/services" }]
       : []),
     ...(role === "admin"
-      ? [{ label: "Review services", href: "/admin/services" }]
+      ? [
+          { label: "Review services", href: "/admin/services" },
+          { label: "Manage users", href: "/admin/users" },
+        ]
       : []),
   ];
 
@@ -108,7 +111,9 @@ export function SiteHeader() {
               (item.href === "/vendor/services" &&
                 pathname.startsWith("/vendor/services")) ||
               (item.href === "/admin/services" &&
-                pathname.startsWith("/admin/services"));
+                pathname.startsWith("/admin/services")) ||
+              (item.href === "/admin/users" &&
+                pathname.startsWith("/admin/users"));
 
             return (
               <Link
@@ -199,7 +204,9 @@ export function SiteHeader() {
                   (item.href === "/vendor/services" &&
                     pathname.startsWith("/vendor/services")) ||
                   (item.href === "/admin/services" &&
-                    pathname.startsWith("/admin/services"));
+                    pathname.startsWith("/admin/services")) ||
+                  (item.href === "/admin/users" &&
+                    pathname.startsWith("/admin/users"));
 
                 return (
                   <Link
