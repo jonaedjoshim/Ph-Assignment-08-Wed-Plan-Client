@@ -49,6 +49,9 @@ export function SiteHeader() {
     ...(role === "vendor"
       ? [{ label: "Manage services", href: "/vendor/services" }]
       : []),
+    ...(role === "admin"
+      ? [{ label: "Review services", href: "/admin/services" }]
+      : []),
   ];
 
   const isSignInActive = pathname === "/sign-in";
@@ -96,16 +99,16 @@ export function SiteHeader() {
 
         <nav
           aria-label="Main navigation"
-          className="hidden items-center gap-8 md:flex"
+          className="hidden items-center gap-5 xl:flex"
         >
           {visibleNavigationLinks.map((item) => {
             const isActive =
-              (item.href === "/services" &&
-                pathname.startsWith("/services")) ||
-              (item.href === "/bookings" &&
-                pathname.startsWith("/bookings")) ||
+              (item.href === "/services" && pathname.startsWith("/services")) ||
+              (item.href === "/bookings" && pathname.startsWith("/bookings")) ||
               (item.href === "/vendor/services" &&
-                pathname.startsWith("/vendor/services"));
+                pathname.startsWith("/vendor/services")) ||
+              (item.href === "/admin/services" &&
+                pathname.startsWith("/admin/services"));
 
             return (
               <Link
@@ -122,7 +125,7 @@ export function SiteHeader() {
           })}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 xl:flex">
           {!isSessionPending &&
             (isAuthenticated ? (
               <button
@@ -162,7 +165,7 @@ export function SiteHeader() {
           aria-expanded={isMenuOpen}
           aria-controls="mobile-navigation"
           onClick={() => setIsMenuOpen((open) => !open)}
-          className="grid h-10 w-10 place-items-center rounded-full border border-[#eaded8] text-wedplan-ink md:hidden"
+          className="grid h-10 w-10 place-items-center rounded-full border border-[#eaded8] text-wedplan-ink xl:hidden"
         >
           {isMenuOpen ? (
             <X aria-hidden="true" className="h-5 w-5" />
@@ -181,7 +184,7 @@ export function SiteHeader() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-[#eaded8] md:hidden"
+            className="overflow-hidden border-t border-[#eaded8] xl:hidden"
           >
             <nav
               aria-label="Mobile navigation"
@@ -194,7 +197,9 @@ export function SiteHeader() {
                   (item.href === "/bookings" &&
                     pathname.startsWith("/bookings")) ||
                   (item.href === "/vendor/services" &&
-                    pathname.startsWith("/vendor/services"));
+                    pathname.startsWith("/vendor/services")) ||
+                  (item.href === "/admin/services" &&
+                    pathname.startsWith("/admin/services"));
 
                 return (
                   <Link
