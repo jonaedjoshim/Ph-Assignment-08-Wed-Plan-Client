@@ -12,23 +12,61 @@ import {
   Utensils,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
-import { DEMO_SERVICES } from "@/lib/demo-services";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/footer";
 import {
   SERVICE_CATEGORIES,
   type ServiceCategory,
 } from "@/lib/service-categories";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/footer";
 
 type CategoryFilter = "All categories" | ServiceCategory;
 type SortOrder = "recommended" | "price-ascending" | "price-descending";
 
-function isServiceCategory(value: string | null): value is ServiceCategory {
-  return value !== null && (SERVICE_CATEGORIES as readonly string[]).includes(value);
-}
+type ApiService = {
+  _id: string;
+  serviceName: string;
+  category: ServiceCategory;
+  description: string;
+  price: number;
+  location: string;
+  images?: string[];
+};
+
+type ServicePagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+type ServiceListResponse = {
+  success: true;
+  services: ApiService[];
+  pagination: ServicePagination;
+};
+
+type ServiceRequestState = {
+  key: string;
+  services: ApiService[];
+  pagination: ServicePagination;
+  error: string | null;
+};
+
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+).replace(/\/+$/, "");
+
+const PAGE_SIZE = 12;
+
+const sortValues: Record<SortOrder, string> = {
+  recommended: "newest",
+  "price-ascending": "price-asc",
+  "price-descending": "price-desc",
+};
 
 const categoryFilters: CategoryFilter[] = [
   "All categories",
@@ -44,11 +82,84 @@ const categoryIcons: Record<ServiceCategory, LucideIcon> = {
   "Wedding Fashion": Shirt,
 };
 
+const categoryArtwork: Record<ServiceCategory, string> = {
+  "Photography & Videography":
+    "bg-gradient-to-br from-rose-200 via-amber-100 to-orange-200",
+  "Wedding Venues":
+    "bg-gradient-to-br from-emerald-100 via-stone-100 to-amber-200",
+  "Decoration & Florist":
+    "bg-gradient-to-br from-pink-200 via-rose-100 to-lime-100",
+  "Catering Services":
+    "bg-gradient-to-br from-orange-200 via-amber-100 to-yellow-200",
+  "Makeup & Styling":
+    "bg-gradient-to-br from-fuchsia-200 via-pink-100 to-orange-100",
+  "Wedding Fashion":
+    "bg-gradient-to-br from-violet-200 via-rose-100 to-amber-100",
+};
+
 const priceFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
   maximumFractionDigits: 0,
 });
+
+function isServiceCategory(value: string | null): value is ServiceCategory {
+  return (
+    value !== null && (SERVICE_CATEGORIES as readonly string[]).includes(value)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isApiService(value: unknown): value is ApiService {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const validImages =
+    value.images === undefined ||
+    (Array.isArray(value.images) &&
+      value.images.every((image) => typeof image === "string"));
+
+  return (
+    typeof value._id === "string" &&
+    typeof value.serviceName === "string" &&
+    typeof value.category === "string" &&
+    isServiceCategory(value.category) &&
+    typeof value.description === "string" &&
+    typeof value.price === "number" &&
+    typeof value.location === "string" &&
+    validImages
+  );
+}
+
+function isServiceListResponse(value: unknown): value is ServiceListResponse {
+  if (!isRecord(value) || !isRecord(value.pagination)) {
+    return false;
+  }
+
+  const pagination = value.pagination;
+
+  return (
+    value.success === true &&
+    Array.isArray(value.services) &&
+    value.services.every(isApiService) &&
+    typeof pagination.page === "number" &&
+    typeof pagination.limit === "number" &&
+    typeof pagination.total === "number" &&
+    typeof pagination.totalPages === "number"
+  );
+}
+
+function getApiErrorMessage(value: unknown): string | null {
+  if (isRecord(value) && typeof value.message === "string") {
+    return value.message;
+  }
+
+  return null;
+}
 
 export default function ServicesPage() {
   return (
@@ -69,15 +180,13 @@ export default function ServicesPage() {
 function ServicesPageContent() {
   const searchParams = useSearchParams();
   const category = searchParams.get("category");
+
   const initialCategory: CategoryFilter = isServiceCategory(category)
     ? category
     : "All categories";
 
   return (
-    <ServicesBrowser
-      key={initialCategory}
-      initialCategory={initialCategory}
-    />
+    <ServicesBrowser key={initialCategory} initialCategory={initialCategory} />
   );
 }
 
@@ -97,50 +206,142 @@ function ServicesBrowser({
   initialCategory: CategoryFilter;
 }) {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeCategory, setActiveCategory] =
     useState<CategoryFilter>(initialCategory);
   const [sortOrder, setSortOrder] = useState<SortOrder>("recommended");
+  const [page, setPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const filteredServices = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  const [requestResult, setRequestResult] = useState<ServiceRequestState>({
+    key: "",
+    services: [],
+    pagination: {
+      page: 1,
+      limit: PAGE_SIZE,
+      total: 0,
+      totalPages: 0,
+    },
+    error: null,
+  });
 
-    const results = DEMO_SERVICES.filter((service) => {
-      const matchesCategory =
-        activeCategory === "All categories" ||
-        service.category === activeCategory;
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
 
-      const searchableText = [
-        service.name,
-        service.vendorName,
-        service.category,
-        service.location,
-        service.description,
-      ]
-        .join(" ")
-        .toLowerCase();
+    return () => window.clearTimeout(timeoutId);
+  }, [search]);
 
-      return matchesCategory && searchableText.includes(query);
-    });
+  const request = useMemo(() => {
+    const params = new URLSearchParams();
 
-    if (sortOrder === "price-ascending") {
-      results.sort(
-        (first, second) => first.startingPrice - second.startingPrice,
-      );
+    params.set("page", String(page));
+    params.set("limit", String(PAGE_SIZE));
+    params.set("sort", sortValues[sortOrder]);
+
+    if (activeCategory !== "All categories") {
+      params.set("category", activeCategory);
     }
 
-    if (sortOrder === "price-descending") {
-      results.sort(
-        (first, second) => second.startingPrice - first.startingPrice,
-      );
+    if (debouncedSearch) {
+      params.set("search", debouncedSearch);
     }
 
-    return results;
-  }, [activeCategory, search, sortOrder]);
+    const query = params.toString();
+
+    return {
+      key: `${reloadKey}:${query}`,
+      url: `${API_BASE_URL}/api/services?${query}`,
+      page,
+    };
+  }, [activeCategory, debouncedSearch, page, reloadKey, sortOrder]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadServices() {
+      try {
+        const response = await fetch(request.url, {
+          signal: controller.signal,
+        });
+
+        const payload: unknown = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(
+            getApiErrorMessage(payload) ??
+              `Could not load services (HTTP ${response.status}).`,
+          );
+        }
+
+        if (!isServiceListResponse(payload)) {
+          throw new Error("The services API returned an unexpected response.");
+        }
+
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setRequestResult({
+          key: request.key,
+          services: payload.services,
+          pagination: payload.pagination,
+          error: null,
+        });
+      } catch (requestError) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setRequestResult({
+          key: request.key,
+          services: [],
+          pagination: {
+            page: request.page,
+            limit: PAGE_SIZE,
+            total: 0,
+            totalPages: 0,
+          },
+          error:
+            requestError instanceof TypeError
+              ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
+              : requestError instanceof Error
+                ? requestError.message
+                : "Could not load services.",
+        });
+      }
+    }
+
+    void loadServices();
+
+    return () => controller.abort();
+  }, [request]);
+
+  const hasCurrentResult = requestResult.key === request.key;
+  const isLoading = !hasCurrentResult;
+  const services = hasCurrentResult ? requestResult.services : [];
+  const error = hasCurrentResult ? requestResult.error : null;
+  const pagination = hasCurrentResult
+    ? requestResult.pagination
+    : {
+        page: request.page,
+        limit: PAGE_SIZE,
+        total: 0,
+        totalPages: 0,
+      };
+
+  const hasActiveFilters =
+    search.trim().length > 0 ||
+    activeCategory !== "All categories" ||
+    sortOrder !== "recommended";
 
   function clearFilters() {
     setSearch("");
+    setDebouncedSearch("");
     setActiveCategory("All categories");
     setSortOrder("recommended");
+    setPage(1);
   }
 
   return (
@@ -154,9 +355,7 @@ function ServicesBrowser({
             <span aria-hidden="true" className="px-2">
               /
             </span>
-            <span className="font-medium text-wedplan-ink">
-              Find services
-            </span>
+            <span className="font-medium text-wedplan-ink">Find services</span>
           </div>
 
           <div className="mt-6 max-w-3xl">
@@ -167,14 +366,14 @@ function ServicesBrowser({
               Find wedding services that feel right.
             </h1>
             <p className="mt-4 max-w-2xl leading-7 text-stone-600">
-              Search by service, vendor, or location, then narrow down your
+              Search by service, description, or location, then narrow down your
               options by category and price.
             </p>
           </div>
 
           <div className="mt-8 max-w-2xl">
             <label htmlFor="service-search" className="sr-only">
-              Search services, vendors, or locations
+              Search services, descriptions, or locations
             </label>
             <div className="flex items-center gap-3 rounded-2xl border border-[#e7d9d2] bg-white px-4 shadow-sm transition focus-within:border-wedplan-rose focus-within:ring-4 focus-within:ring-[#96575b]/10">
               <Search
@@ -185,7 +384,10 @@ function ServicesBrowser({
                 id="service-search"
                 type="search"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
                 placeholder="Try photography, venues, or Dhaka"
                 className="min-h-14 w-full bg-transparent text-sm outline-none placeholder:text-stone-400"
               />
@@ -215,7 +417,10 @@ function ServicesBrowser({
                   radius="full"
                   variant={isActive ? "solid" : "bordered"}
                   aria-pressed={isActive}
-                  onPress={() => setActiveCategory(category)}
+                  onPress={() => {
+                    setActiveCategory(category);
+                    setPage(1);
+                  }}
                   className={
                     isActive
                       ? "shrink-0 border border-wedplan-rose bg-wedplan-rose font-medium text-white"
@@ -231,11 +436,7 @@ function ServicesBrowser({
 
         <div className="mt-8 rounded-2xl border border-[#eaded8] bg-white/80 p-4 sm:flex sm:items-center sm:justify-between sm:px-5">
           <p className="text-sm leading-6 text-stone-600">
-            <span className="mr-2 inline-flex rounded-full bg-[#f7eae5] px-2.5 py-1 text-xs font-semibold text-wedplan-rose">
-              Preview listings
-            </span>
-            Sample data for now; approved services will load from the WedPlan
-            API.
+            Services shown here are approved WedPlan listings.
           </p>
 
           <div className="mt-4 flex items-center gap-3 sm:mt-0">
@@ -248,9 +449,10 @@ function ServicesBrowser({
             <select
               id="sort-services"
               value={sortOrder}
-              onChange={(event) =>
-                setSortOrder(event.target.value as SortOrder)
-              }
+              onChange={(event) => {
+                setSortOrder(event.target.value as SortOrder);
+                setPage(1);
+              }}
               className="min-h-10 rounded-xl border border-[#e7d9d2] bg-white px-3 text-sm text-wedplan-ink outline-none focus:border-wedplan-rose"
             >
               <option value="recommended">Recommended</option>
@@ -262,14 +464,24 @@ function ServicesBrowser({
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
           <p aria-live="polite" className="text-sm text-stone-600">
-            Showing{" "}
-            <span className="font-semibold text-wedplan-ink">
-              {filteredServices.length}
-            </span>{" "}
-            {filteredServices.length === 1 ? "service" : "services"}
+            {isLoading ? (
+              "Loading services…"
+            ) : (
+              <>
+                Showing{" "}
+                <span className="font-semibold text-wedplan-ink">
+                  {services.length}
+                </span>{" "}
+                on this page of{" "}
+                <span className="font-semibold text-wedplan-ink">
+                  {pagination.total}
+                </span>{" "}
+                {pagination.total === 1 ? "service" : "services"}
+              </>
+            )}
           </p>
 
-          {(search || activeCategory !== "All categories") && (
+          {hasActiveFilters && (
             <Button
               type="button"
               size="sm"
@@ -283,49 +495,81 @@ function ServicesBrowser({
           )}
         </div>
 
-        {filteredServices.length > 0 ? (
+        {isLoading ? (
+          <div
+            role="status"
+            className="mt-5 rounded-2xl border border-[#eaded8] bg-white/70 px-6 py-14 text-center text-sm text-stone-500"
+          >
+            Loading approved services…
+          </div>
+        ) : error ? (
+          <div
+            role="alert"
+            className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center"
+          >
+            <h2 className="text-lg font-semibold text-red-800">
+              Services could not be loaded.
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-red-700">{error}</p>
+            <Button
+              type="button"
+              radius="full"
+              onPress={() => setReloadKey((current) => current + 1)}
+              className="mt-5 bg-wedplan-rose font-semibold text-white"
+            >
+              Try again
+            </Button>
+          </div>
+        ) : services.length > 0 ? (
           <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredServices.map((service) => {
+            {services.map((service) => {
               const Icon = categoryIcons[service.category];
+              const imageUrl = service.images?.[0];
 
               return (
                 <motion.article
-                  key={service.id}
+                  key={service._id}
                   layout
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.22 }}
-                  aria-labelledby={`service-${service.id}`}
+                  aria-labelledby={`service-${service._id}`}
                   className="overflow-hidden rounded-2xl border border-[#eee3de] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg hover:shadow-[#704c3f]/5"
                 >
                   <div
-                    className={`relative flex h-44 items-end overflow-hidden p-5 ${service.artworkClass}`}
+                    className={`relative flex h-44 items-end overflow-hidden p-5 ${categoryArtwork[service.category]}`}
                   >
+                    {imageUrl && (
+                      <Image
+                        src={imageUrl}
+                        alt={service.serviceName}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        unoptimized
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                        }}
+                        className="object-cover"
+                      />
+                    )}
+
                     <div
                       aria-hidden="true"
-                      className="absolute -right-8 -top-10 h-40 w-40 rounded-full bg-white/35 blur-2xl"
-                    />
-                    <div
-                      aria-hidden="true"
-                      className="absolute -bottom-12 left-12 h-36 w-36 rounded-full bg-white/35 blur-2xl"
+                      className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-white/10"
                     />
 
-                    <span className="relative inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/75 px-3 py-1.5 text-xs font-semibold text-[#4f3d38] backdrop-blur">
+                    <span className="relative z-10 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/75 px-3 py-1.5 text-xs font-semibold text-[#4f3d38] backdrop-blur">
                       <Icon aria-hidden="true" className="h-4 w-4" />
                       {service.category}
                     </span>
                   </div>
 
                   <div className="p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-wedplan-rose">
-                      {service.vendorName}
-                    </p>
-
                     <h2
-                      id={`service-${service.id}`}
-                      className="mt-2 text-lg font-semibold leading-snug"
+                      id={`service-${service._id}`}
+                      className="text-lg font-semibold leading-snug"
                     >
-                      {service.name}
+                      {service.serviceName}
                     </h2>
 
                     <p className="mt-2 min-h-12 text-sm leading-6 text-stone-600">
@@ -338,11 +582,9 @@ function ServicesBrowser({
                     </div>
 
                     <div className="mt-5 flex items-end justify-between border-t border-[#f0e8e4] pt-4">
-                      <span className="text-xs text-stone-500">
-                        Starting from
-                      </span>
+                      <span className="text-xs text-stone-500">Price</span>
                       <span className="text-lg font-semibold text-wedplan-ink">
-                        {priceFormatter.format(service.startingPrice)}
+                        {priceFormatter.format(service.price)}
                       </span>
                     </div>
                   </div>
@@ -357,20 +599,59 @@ function ServicesBrowser({
               className="mx-auto h-8 w-8 text-wedplan-rose"
             />
             <h2 className="mt-4 text-lg font-semibold">
-              No services match your search.
+              {hasActiveFilters
+                ? "No services match your search."
+                : "No approved services are available yet."}
             </h2>
             <p className="mt-2 text-sm text-stone-600">
-              Try another search term or clear your filters.
+              {hasActiveFilters
+                ? "Try another search term or clear your filters."
+                : "Approved vendor listings will appear here."}
             </p>
+            {hasActiveFilters && (
+              <Button
+                type="button"
+                radius="full"
+                onPress={clearFilters}
+                className="mt-5 bg-wedplan-rose font-semibold text-white"
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
+        )}
+
+        {!isLoading && !error && pagination.totalPages > 1 && (
+          <nav
+            aria-label="Service result pages"
+            className="mt-8 flex items-center justify-center gap-4"
+          >
             <Button
               type="button"
+              variant="bordered"
               radius="full"
-              onPress={clearFilters}
-              className="mt-5 bg-wedplan-rose font-semibold text-white"
+              isDisabled={page <= 1}
+              onPress={() => setPage((current) => current - 1)}
+              className="border-[#e3d4cd] bg-white"
             >
-              Clear filters
+              Previous
             </Button>
-          </div>
+
+            <span className="text-sm text-stone-600">
+              Page {page} of {pagination.totalPages}
+            </span>
+
+            <Button
+              type="button"
+              variant="bordered"
+              radius="full"
+              isDisabled={page >= pagination.totalPages}
+              onPress={() => setPage((current) => current + 1)}
+              className="border-[#e3d4cd] bg-white"
+            >
+              Next
+            </Button>
+          </nav>
         )}
       </section>
     </>
