@@ -14,10 +14,10 @@ import {
 import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { SiteHeader } from "@/components/site-header";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { SiteFooter } from "@/components/footer";
+import { SiteHeader } from "@/components/site-header";
 import {
   SERVICE_CATEGORIES,
   type ServiceCategory,
@@ -161,6 +161,37 @@ function getApiErrorMessage(value: unknown): string | null {
   return null;
 }
 
+function ServiceCardSkeleton() {
+  return (
+    <article
+      aria-hidden="true"
+      className="overflow-hidden rounded-2xl border border-[#eee3de] bg-white"
+    >
+      <div className="h-44 animate-pulse bg-[#eaded8]" />
+
+      <div className="space-y-4 p-5">
+        <div className="h-5 w-3/4 animate-pulse rounded bg-[#eaded8]" />
+        <div className="h-4 w-full animate-pulse rounded bg-[#f0e8e4]" />
+        <div className="h-4 w-5/6 animate-pulse rounded bg-[#f0e8e4]" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-[#f0e8e4]" />
+        <div className="border-t border-[#f0e8e4] pt-4">
+          <div className="ml-auto h-6 w-24 animate-pulse rounded bg-[#eaded8]" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ServiceCardSkeletons() {
+  return (
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {[0, 1, 2].map((item) => (
+        <ServiceCardSkeleton key={item} />
+      ))}
+    </div>
+  );
+}
+
 export default function ServicesPage() {
   return (
     <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
@@ -192,10 +223,20 @@ function ServicesPageContent() {
 
 function ServicesLoading() {
   return (
-    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
-      <p role="status" className="text-sm text-stone-500">
-        Loading services…
+    <section
+      aria-busy="true"
+      className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16"
+    >
+      <p role="status" className="sr-only">
+        Loading services
       </p>
+
+      <div className="h-10 w-3/4 animate-pulse rounded bg-[#eaded8] sm:w-1/2" />
+      <div className="mt-4 h-5 w-full max-w-xl animate-pulse rounded bg-[#f0e8e4]" />
+
+      <div className="mt-10">
+        <ServiceCardSkeletons />
+      </div>
     </section>
   );
 }
@@ -396,7 +437,10 @@ function ServicesBrowser({
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-12">
+      <section
+        aria-busy={isLoading}
+        className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-12"
+      >
         <div className="flex flex-col gap-5">
           <div>
             <h2 className="text-lg font-semibold">Browse by category</h2>
@@ -465,7 +509,13 @@ function ServicesBrowser({
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
           <p aria-live="polite" className="text-sm text-stone-600">
             {isLoading ? (
-              "Loading services…"
+              <>
+                <span className="sr-only">Loading services</span>
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-4 w-36 animate-pulse rounded bg-[#eaded8]"
+                />
+              </>
             ) : (
               <>
                 Showing{" "}
@@ -496,11 +546,11 @@ function ServicesBrowser({
         </div>
 
         {isLoading ? (
-          <div
-            role="status"
-            className="mt-5 rounded-2xl border border-[#eaded8] bg-white/70 px-6 py-14 text-center text-sm text-stone-500"
-          >
-            Loading approved services…
+          <div className="mt-5">
+            <p role="status" className="sr-only">
+              Loading approved services
+            </p>
+            <ServiceCardSkeletons />
           </div>
         ) : error ? (
           <div
@@ -527,68 +577,73 @@ function ServicesBrowser({
               const imageUrl = service.images?.[0];
 
               return (
-                <motion.article
+                <Link
                   key={service._id}
-                  layout
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22 }}
-                  aria-labelledby={`service-${service._id}`}
-                  className="overflow-hidden rounded-2xl border border-[#eee3de] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg hover:shadow-[#704c3f]/5"
+                  href={`/services/${service._id}`}
+                  className="block rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#96575b]/30"
                 >
-                  <div
-                    className={`relative flex h-44 items-end overflow-hidden p-5 ${categoryArtwork[service.category]}`}
+                  <motion.article
+                    layout
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22 }}
+                    aria-labelledby={`service-${service._id}`}
+                    className="h-full overflow-hidden rounded-2xl border border-[#eee3de] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg hover:shadow-[#704c3f]/5"
                   >
-                    {imageUrl && (
-                      <Image
-                        src={imageUrl}
-                        alt={service.serviceName}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        unoptimized
-                        onError={(event) => {
-                          event.currentTarget.style.display = "none";
-                        }}
-                        className="object-cover"
-                      />
-                    )}
-
                     <div
-                      aria-hidden="true"
-                      className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-white/10"
-                    />
-
-                    <span className="relative z-10 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/75 px-3 py-1.5 text-xs font-semibold text-[#4f3d38] backdrop-blur">
-                      <Icon aria-hidden="true" className="h-4 w-4" />
-                      {service.category}
-                    </span>
-                  </div>
-
-                  <div className="p-5">
-                    <h2
-                      id={`service-${service._id}`}
-                      className="text-lg font-semibold leading-snug"
+                      className={`relative flex h-44 items-end overflow-hidden p-5 ${categoryArtwork[service.category]}`}
                     >
-                      {service.serviceName}
-                    </h2>
+                      {imageUrl && (
+                        <Image
+                          src={imageUrl}
+                          alt={service.serviceName}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          unoptimized
+                          onError={(event) => {
+                            event.currentTarget.style.display = "none";
+                          }}
+                          className="object-cover"
+                        />
+                      )}
 
-                    <p className="mt-2 min-h-12 text-sm leading-6 text-stone-600">
-                      {service.description}
-                    </p>
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-white/10"
+                      />
 
-                    <div className="mt-4 flex items-center gap-2 text-sm text-stone-500">
-                      <MapPin aria-hidden="true" className="h-4 w-4" />
-                      {service.location}
-                    </div>
-
-                    <div className="mt-5 flex items-end justify-between border-t border-[#f0e8e4] pt-4">
-                      <span className="text-xs text-stone-500">Price</span>
-                      <span className="text-lg font-semibold text-wedplan-ink">
-                        {priceFormatter.format(service.price)}
+                      <span className="relative z-10 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/75 px-3 py-1.5 text-xs font-semibold text-[#4f3d38] backdrop-blur">
+                        <Icon aria-hidden="true" className="h-4 w-4" />
+                        {service.category}
                       </span>
                     </div>
-                  </div>
-                </motion.article>
+
+                    <div className="p-5">
+                      <h2
+                        id={`service-${service._id}`}
+                        className="text-lg font-semibold leading-snug"
+                      >
+                        {service.serviceName}
+                      </h2>
+
+                      <p className="mt-2 min-h-12 text-sm leading-6 text-stone-600">
+                        {service.description}
+                      </p>
+
+                      <div className="mt-4 flex items-center gap-2 text-sm text-stone-500">
+                        <MapPin aria-hidden="true" className="h-4 w-4" />
+                        {service.location}
+                      </div>
+
+                      <div className="mt-5 flex items-end justify-between border-t border-[#f0e8e4] pt-4">
+                        <span className="text-xs text-stone-500">Price</span>
+                        <span className="text-lg font-semibold text-wedplan-ink">
+                          {priceFormatter.format(service.price)}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.article>
+                </Link>
               );
             })}
           </div>
