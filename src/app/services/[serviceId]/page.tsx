@@ -5,7 +5,7 @@ import { ArrowLeft, MapPin, Search } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { SiteFooter } from "@/components/footer";
 import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
@@ -35,6 +35,13 @@ type ServiceDetailState = {
   error: string | null;
 };
 
+type BookingFeedback = {
+  type: "success" | "error";
+  message: string;
+} | null;
+
+type AccountRole = "customer" | "vendor" | "admin";
+
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 ).replace(/\/+$/, "");
@@ -62,6 +69,20 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getAccountRole(value: unknown): AccountRole | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const role = value.role;
+
+  if (role === "customer" || role === "vendor" || role === "admin") {
+    return role;
+  }
+
+  return null;
 }
 
 function isServiceCategory(value: unknown): value is ServiceCategory {
@@ -133,7 +154,7 @@ function ServiceDetailSkeleton() {
           <div className="h-5 w-3/4 animate-pulse rounded bg-[#f0e8e4]" />
           <div className="h-5 w-full animate-pulse rounded bg-[#f0e8e4]" />
           <div className="h-5 w-5/6 animate-pulse rounded bg-[#f0e8e4]" />
-          <div className="h-6 w-1/2 animate-pulse rounded bg-[#f0e8e4]" />
+          <div className="h-6 w-1/2 animate-pulse rounded bg-[#eaded8]" />
           <div className="mt-8 h-24 animate-pulse rounded-2xl bg-[#f0e8e4]" />
         </div>
       </div>
@@ -187,6 +208,195 @@ function ServiceDetailError({
   );
 }
 
+function BookingRequestForm({ serviceId }: { serviceId: string }) {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<BookingFeedback>(null);
+  const minimumEventDate = new Date().toISOString().slice(0, 10);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const eventDate = formData.get("eventDate");
+    const eventLocation = formData.get("eventLocation");
+    const message = formData.get("message");
+
+    if (
+      typeof eventDate !== "string" ||
+      typeof eventLocation !== "string" ||
+      typeof message !== "string"
+    ) {
+      setFeedback({
+        type: "error",
+        message: "Please complete the booking form and try again.",
+      });
+      return;
+    }
+
+    if (eventDate < minimumEventDate) {
+      setFeedback({
+        type: "error",
+        message: "Event date cannot be in the past.",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFeedback(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          serviceId,
+          eventDate,
+          eventLocation,
+          message,
+        }),
+      });
+
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (response.status === 401) {
+        const callbackURL = `/services/${serviceId}`;
+
+        router.replace(
+          `/sign-in?callbackURL=${encodeURIComponent(callbackURL)}`,
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(payload) ??
+            `Could not send booking request (HTTP ${response.status}).`,
+        );
+      }
+
+      if (!isRecord(payload) || payload.success !== true) {
+        throw new Error("The booking API returned an unexpected response.");
+      }
+
+      form.reset();
+      setFeedback({
+        type: "success",
+        message: "Your booking request has been sent.",
+      });
+    } catch (requestError) {
+      setFeedback({
+        type: "error",
+        message:
+          requestError instanceof TypeError
+            ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
+            : requestError instanceof Error
+              ? requestError.message
+              : "Could not send the booking request.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (feedback?.type === "success") {
+    return (
+      <div
+        role="status"
+        className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-sm leading-6 text-emerald-900"
+      >
+        <p className="font-semibold">Request sent</p>
+        <p className="mt-2">{feedback.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      aria-busy={isSubmitting}
+      className="space-y-5"
+    >
+      <div>
+        <label
+          htmlFor="eventDate"
+          className="block text-sm font-semibold text-wedplan-ink"
+        >
+          Event date
+        </label>
+        <input
+          id="eventDate"
+          name="eventDate"
+          type="date"
+          required
+          min={minimumEventDate}
+          disabled={isSubmitting}
+          className="mt-2 min-h-12 w-full rounded-xl border border-[#e3d4cd] bg-white px-4 text-sm text-wedplan-ink outline-none transition focus:border-wedplan-rose focus:ring-2 focus:ring-wedplan-rose/20 disabled:cursor-not-allowed disabled:bg-stone-100"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="eventLocation"
+          className="block text-sm font-semibold text-wedplan-ink"
+        >
+          Event location
+        </label>
+        <input
+          id="eventLocation"
+          name="eventLocation"
+          type="text"
+          required
+          maxLength={200}
+          disabled={isSubmitting}
+          placeholder="Enter the event location"
+          className="mt-2 min-h-12 w-full rounded-xl border border-[#e3d4cd] bg-white px-4 text-sm text-wedplan-ink outline-none transition placeholder:text-stone-400 focus:border-wedplan-rose focus:ring-2 focus:ring-wedplan-rose/20 disabled:cursor-not-allowed disabled:bg-stone-100"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="bookingMessage"
+          className="block text-sm font-semibold text-wedplan-ink"
+        >
+          Message to vendor
+          <span className="ml-1 font-normal text-stone-500">(optional)</span>
+        </label>
+        <textarea
+          id="bookingMessage"
+          name="message"
+          rows={4}
+          maxLength={2000}
+          disabled={isSubmitting}
+          placeholder="Share any details about your event"
+          className="mt-2 w-full resize-y rounded-xl border border-[#e3d4cd] bg-white px-4 py-3 text-sm text-wedplan-ink outline-none transition placeholder:text-stone-400 focus:border-wedplan-rose focus:ring-2 focus:ring-wedplan-rose/20 disabled:cursor-not-allowed disabled:bg-stone-100"
+        />
+      </div>
+
+      {feedback?.type === "error" && (
+        <p
+          role="alert"
+          className="rounded-xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800"
+        >
+          {feedback.message}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-wedplan-rose px-6 text-sm font-semibold text-white transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wedplan-rose focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isSubmitting ? "Sending request..." : "Send booking request"}
+      </button>
+    </form>
+  );
+}
+
 function ServiceDetailContent() {
   const params = useParams<{ serviceId: string }>();
   const router = useRouter();
@@ -196,6 +406,7 @@ function ServiceDetailContent() {
     authClient.useSession();
 
   const userId = session?.user?.id;
+  const accountRole = getAccountRole(session?.user);
   const validServiceId = isValidServiceId(serviceId);
 
   const [retryKey, setRetryKey] = useState(0);
@@ -395,6 +606,39 @@ function ServiceDetailContent() {
           </div>
         </div>
       </article>
+
+      <section className="mt-12 grid gap-8 lg:grid-cols-2 lg:gap-12">
+        <div className="flex flex-col justify-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wedplan-rose">
+            Plan your event
+          </p>
+
+          <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+            Request this service
+          </h2>
+
+          <p className="mt-4 max-w-xl text-sm leading-7 text-stone-600">
+            Send the vendor your event date and location. Your request will be
+            pending until the vendor responds.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-[#eaded8] bg-white p-5 shadow-sm sm:p-7">
+          {accountRole === "customer" ? (
+            <BookingRequestForm serviceId={service._id} />
+          ) : (
+            <div className="rounded-xl bg-[#f8f2ef] p-5">
+              <h3 className="font-semibold text-wedplan-ink">
+                Customer account required
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-stone-600">
+                Booking requests are available to customer accounts. Sign in
+                with a customer account to request this service.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
     </section>
   );
 }
