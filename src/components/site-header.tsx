@@ -42,9 +42,15 @@ export function SiteHeader() {
   const isAuthenticated = Boolean(session?.user);
   const role = getAccountRole(session?.user);
   const canOpenBookings = role === "customer" || role === "vendor";
-  const visibleNavigationLinks = canOpenBookings
-    ? [...navigationLinks, { label: "My bookings", href: "/bookings" }]
-    : navigationLinks;
+
+  const visibleNavigationLinks = [
+    ...navigationLinks,
+    ...(canOpenBookings ? [{ label: "My bookings", href: "/bookings" }] : []),
+    ...(role === "vendor"
+      ? [{ label: "Manage services", href: "/vendor/services" }]
+      : []),
+  ];
+
   const isSignInActive = pathname === "/sign-in";
   const isSignUpActive = pathname === "/sign-up";
 
@@ -94,8 +100,12 @@ export function SiteHeader() {
         >
           {visibleNavigationLinks.map((item) => {
             const isActive =
-              (item.href === "/services" && pathname.startsWith("/services")) ||
-              (item.href === "/bookings" && pathname.startsWith("/bookings"));
+              (item.href === "/services" &&
+                pathname.startsWith("/services")) ||
+              (item.href === "/bookings" &&
+                pathname.startsWith("/bookings")) ||
+              (item.href === "/vendor/services" &&
+                pathname.startsWith("/vendor/services"));
 
             return (
               <Link
@@ -182,7 +192,9 @@ export function SiteHeader() {
                   (item.href === "/services" &&
                     pathname.startsWith("/services")) ||
                   (item.href === "/bookings" &&
-                    pathname.startsWith("/bookings"));
+                    pathname.startsWith("/bookings")) ||
+                  (item.href === "/vendor/services" &&
+                    pathname.startsWith("/vendor/services"));
 
                 return (
                   <Link
