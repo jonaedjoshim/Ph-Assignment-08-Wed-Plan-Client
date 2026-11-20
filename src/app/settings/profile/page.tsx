@@ -149,6 +149,7 @@ function ProfileEditor({
   profile: Profile;
   onProfileUpdated: (profile: Profile) => void;
 }) {
+  const router = useRouter();
   const [formValues, setFormValues] = useState<ProfileFormValues>(() => ({
     name: profile.name,
     businessName: profile.businessName,
@@ -222,7 +223,7 @@ function ProfileEditor({
       const payload: unknown = await response.json().catch(() => null);
 
       if (response.status === 401) {
-        window.location.assign(
+        router.replace(
           `/sign-in?callbackURL=${encodeURIComponent("/settings/profile")}`,
         );
         return;
