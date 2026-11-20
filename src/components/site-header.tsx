@@ -27,7 +27,7 @@ type ProfileLink = {
 
 const navigationLinks = [
   { label: "Find services", href: "/services" },
-  { label: "Categories", href: "/#categories" },
+  { label: "Categories", href: "/categories" },
   { label: "How it works", href: "/#how-it-works" },
 ];
 
