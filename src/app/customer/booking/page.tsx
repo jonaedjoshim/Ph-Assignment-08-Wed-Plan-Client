@@ -405,7 +405,7 @@ function CustomerBookingsContent() {
     setActionNotice("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/customer/bookings/${encodeURIComponent(booking.id)}/cancel`,
         {
           method: "PATCH",

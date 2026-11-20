@@ -333,7 +333,7 @@ function SubscriptionContent() {
     setIsCheckingOut(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/checkout`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/stripe/checkout`, {
         method: "POST",
         credentials: "include",
         headers: {

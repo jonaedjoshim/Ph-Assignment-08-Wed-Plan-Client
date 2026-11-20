@@ -262,7 +262,7 @@ function VendorAvailabilityContent() {
     setNotice("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/vendor/availability/${encodeURIComponent(service.id)}`,
         {
           method: "PATCH",

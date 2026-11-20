@@ -21,6 +21,7 @@ import {
   SERVICE_CATEGORIES,
   type ServiceCategory,
 } from "@/lib/service-categories";
+import { apiFetch } from "@/lib/api";
 
 type AccountRole = "customer" | "vendor" | "admin";
 type ServiceStatus = "pending" | "approved" | "rejected";
@@ -290,7 +291,7 @@ function VendorServicesContent() {
 
     async function loadServices() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/vendor/services`, {
+        const response = await apiFetch(`${API_BASE_URL}/api/vendor/services`, {
           credentials: "include",
           signal: controller.signal,
         });
@@ -368,7 +369,7 @@ function VendorServicesContent() {
     setBillingNotice("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/checkout`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/stripe/checkout`, {
         method: "POST",
         credentials: "include",
       });
@@ -440,7 +441,7 @@ function VendorServicesContent() {
     setBillingNotice("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/cancel`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/stripe/cancel`, {
         method: "POST",
         credentials: "include",
       });
@@ -581,7 +582,7 @@ function VendorServicesContent() {
         ? `${API_BASE_URL}/api/vendor/services/${encodeURIComponent(editingServiceId)}`
         : `${API_BASE_URL}/api/vendor/services`;
 
-      const response = await fetch(endpoint, {
+      const response = await apiFetch(endpoint, {
         method: editingServiceId ? "PATCH" : "POST",
         credentials: "include",
         headers: {
@@ -641,7 +642,7 @@ function VendorServicesContent() {
     setPageNotice("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/vendor/services/${encodeURIComponent(serviceId)}`,
         {
           method: "DELETE",

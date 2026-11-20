@@ -402,7 +402,7 @@ function AdminUsersContent() {
     setPageNotice("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/admin/users/${encodeURIComponent(user.id)}/status`,
         {
           method: "PATCH",

@@ -23,6 +23,7 @@ import {
   SERVICE_CATEGORIES,
   type ServiceCategory,
 } from "@/lib/service-categories";
+import { apiFetch } from "@/lib/api";
 
 type CategoryFilter = "All categories" | ServiceCategory;
 type SortOrder = "recommended" | "price-ascending" | "price-descending";
@@ -388,7 +389,7 @@ function ServicesBrowser({
 
     async function loadServices() {
       try {
-        const response = await fetch(request.url, {
+        const response = await apiFetch(request.url, {
           signal: controller.signal,
         });
 

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { ImagePlus, X } from "lucide-react";
 import { useRef, useState, type ChangeEvent } from "react";
+import { apiFetch } from "@/lib/api";
 
 type ServiceImageUploadProps = {
   value: string[];
@@ -102,7 +103,7 @@ export function ServiceImageUpload({
         const formData = new FormData();
         formData.append("image", file);
 
-        const response = await fetch(`${API_BASE_URL}/api/uploads`, {
+        const response = await apiFetch(`${API_BASE_URL}/api/uploads`, {
           method: "POST",
           credentials: "include",
           body: formData,

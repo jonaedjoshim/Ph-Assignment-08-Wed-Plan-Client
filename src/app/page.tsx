@@ -27,6 +27,7 @@ import {
   SERVICE_CATEGORIES,
   type ServiceCategory,
 } from "@/lib/service-categories";
+import { apiFetch } from "@/lib/api";
 
 type FeaturedVendor = {
   name: string;
@@ -396,7 +397,7 @@ export default function HomePage() {
 
     async function loadFeaturedServices() {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/services?limit=${FEATURED_LIMIT}&sort=newest`,
           {
             signal: controller.signal,

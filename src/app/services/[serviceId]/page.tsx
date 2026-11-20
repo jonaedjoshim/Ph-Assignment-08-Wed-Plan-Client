@@ -14,6 +14,7 @@ import {
   SERVICE_CATEGORIES,
   type ServiceCategory,
 } from "@/lib/service-categories";
+import { apiFetch } from "@/lib/api";
 
 type ApiVendor = {
   id: string;
@@ -326,7 +327,7 @@ function BookingRequestForm({ serviceId }: { serviceId: string }) {
     setFeedback(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/bookings`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -526,7 +527,7 @@ function ServiceDetailContent() {
 
     async function loadService() {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/services/${encodeURIComponent(serviceId)}`,
           {
             credentials: "include",

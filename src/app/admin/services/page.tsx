@@ -391,7 +391,7 @@ function AdminServicesContent() {
     setPageNotice("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/admin/services/${encodeURIComponent(serviceId)}/status`,
         {
           method: "PATCH",
@@ -450,7 +450,7 @@ function AdminServicesContent() {
     setPageNotice("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/admin/services/${encodeURIComponent(serviceId)}`,
         {
           method: "DELETE",

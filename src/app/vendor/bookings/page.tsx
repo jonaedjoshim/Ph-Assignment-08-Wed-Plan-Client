@@ -392,7 +392,7 @@ function VendorBookingsContent() {
     setActionNotice("");
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/vendor/bookings/${encodeURIComponent(booking.id)}`,
         {
           method: "PATCH",

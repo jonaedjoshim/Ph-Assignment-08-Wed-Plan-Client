@@ -16,6 +16,7 @@ import { Suspense, useEffect, useState } from "react";
 import { SiteFooter } from "@/components/footer";
 import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
+import { apiFetch } from "@/lib/api";
 
 type AccountRole = "customer" | "vendor" | "admin";
 type BookingStatus = "pending" | "accepted" | "rejected" | "cancelled";
@@ -299,7 +300,7 @@ function BookingPageContent() {
 
     async function loadBookings() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+        const response = await apiFetch(`${API_BASE_URL}/api/bookings`, {
           credentials: "include",
           signal: controller.signal,
         });
@@ -381,7 +382,7 @@ function BookingPageContent() {
       : `${API_BASE_URL}/api/bookings/${encodeURIComponent(bookingId)}/status`;
 
     try {
-      const response = await fetch(endpoint, {
+      const response = await apiFetch(endpoint, {
         method: "PATCH",
         credentials: "include",
         ...(isCancelAction

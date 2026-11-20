@@ -23,7 +23,7 @@ export async function apiFetch(
   }
 
 
-  return fetch(url, {
+  return apiFetch(url, {
     ...init,
     headers,
     credentials: "include",

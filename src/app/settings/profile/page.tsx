@@ -7,6 +7,7 @@ import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { SiteFooter } from "@/components/footer";
 import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
+import { apiFetch } from "@/lib/api";
 
 type AccountRole = "customer" | "vendor" | "admin" | "unknown";
 
@@ -211,7 +212,7 @@ function ProfileEditor({
     setNotice("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/profile`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/profile`, {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -482,7 +483,7 @@ function ProfileSettingsContent() {
 
     async function loadProfile() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/profile`, {
+        const response = await apiFetch(`${API_BASE_URL}/api/profile`, {
           credentials: "include",
           signal: controller.signal,
         });
