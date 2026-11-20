@@ -437,6 +437,29 @@ function AdminOverviewContent() {
               />
             </div>
           </Link>
+
+          <Link
+            href="/admin/transactions"
+            className="group rounded-2xl border border-[#eaded8] bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#f5eae5] text-wedplan-rose">
+                  <CreditCard aria-hidden="true" className="h-5 w-5" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">
+                  View transactions
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-stone-600">
+                  Review Stripe payment records and subscription invoices.
+                </p>
+              </div>
+              <ArrowRight
+                aria-hidden="true"
+                className="mt-2 h-5 w-5 shrink-0 text-wedplan-rose transition group-hover:translate-x-1"
+              />
+            </div>
+          </Link>
         </div>
       </div>
     </section>
