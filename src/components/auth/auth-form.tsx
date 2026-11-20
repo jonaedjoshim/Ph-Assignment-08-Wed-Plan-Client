@@ -184,9 +184,10 @@ export function AuthForm({ mode }: AuthFormProps) {
     setIsPending(true);
 
     try {
+      const safePath = getSafeCallbackURL() ?? "/sign-in";
       const result = await authClient.signIn.social({
         provider: "google",
-        callbackURL: getSafeCallbackURL() ?? "/sign-in",
+        callbackURL: `${window.location.origin}${safePath}`,
       });
 
       if (result.error) {

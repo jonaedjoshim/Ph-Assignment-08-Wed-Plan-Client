@@ -20,6 +20,7 @@ import { Suspense, useEffect, useState } from "react";
 import { SiteFooter } from "@/components/footer";
 import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
+import { apiFetch } from "@/lib/api";
 
 type AccountRole = "customer" | "vendor" | "admin";
 
@@ -297,7 +298,7 @@ function AdminOverviewContent() {
 
     async function loadOverview() {
       try {
-        const response = await fetch(requestUrl, {
+        const response = await apiFetch(requestUrl, {
           credentials: "include",
           signal: controller.signal,
         });

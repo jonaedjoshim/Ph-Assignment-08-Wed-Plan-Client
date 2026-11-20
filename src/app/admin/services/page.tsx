@@ -9,6 +9,7 @@ import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { SiteFooter } from "@/components/footer";
 import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
+import { apiFetch } from "@/lib/api";
 import {
   SERVICE_CATEGORIES,
   type ServiceCategory,
@@ -304,7 +305,7 @@ function AdminServicesContent() {
 
     async function loadServices() {
       try {
-        const response = await fetch(requestUrl, {
+        const response = await apiFetch(requestUrl, {
           credentials: "include",
           signal: controller.signal,
         });
