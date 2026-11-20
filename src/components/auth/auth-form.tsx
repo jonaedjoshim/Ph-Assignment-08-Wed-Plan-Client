@@ -4,7 +4,7 @@ import { ArrowRight, Heart, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { SiteHeader } from "../site-header";
 import { SiteFooter } from "../footer";
@@ -21,7 +21,11 @@ type Feedback = {
   message: string;
 };
 
-function getSafeCallbackURL() {
+function getSafeCallbackURL(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
   const params = new URLSearchParams(window.location.search);
   const callbackURL = params.get("callbackURL");
 
@@ -30,36 +34,78 @@ function getSafeCallbackURL() {
     !callbackURL.startsWith("/") ||
     callbackURL.startsWith("//")
   ) {
-    return "/services";
+    return null;
   }
 
   try {
     const destination = new URL(callbackURL, window.location.origin);
 
     if (destination.origin !== window.location.origin) {
-      return "/services";
+      return null;
     }
 
     if (
       destination.pathname === "/sign-in" ||
       destination.pathname === "/sign-up"
     ) {
-      return "/services";
+      return null;
     }
 
     return `${destination.pathname}${destination.search}${destination.hash}`;
   } catch {
-    return "/services";
+    return null;
   }
+}
+
+function getRoleFromUser(user: unknown): string | undefined {
+  if (typeof user === "object" && user !== null && "role" in user) {
+    return typeof user.role === "string" ? user.role : undefined;
+  }
+
+  return undefined;
+}
+
+function getDashboardPath(role: string | undefined) {
+  if (role === "admin") {
+    return "/admin";
+  }
+
+  if (role === "vendor") {
+    return "/vendor";
+  }
+
+  if (role === "customer") {
+    return "/customer";
+  }
+
+  return "/services";
+}
+
+async function getCurrentUserRole() {
+  const result = await authClient.getSession();
+
+  return getRoleFromUser(result.data?.user);
 }
 
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const isSignUp = mode === "sign-up";
+  const { data: session, isPending: isSessionLoading } =
+    authClient.useSession();
 
   const [role, setRole] = useState<AccountRole>("customer");
   const [isPending, setIsPending] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+
+  useEffect(() => {
+    if (isSessionLoading || !session) {
+      return;
+    }
+
+    const sessionRole = getRoleFromUser(session.user);
+
+    router.replace(getSafeCallbackURL() ?? getDashboardPath(sessionRole));
+  }, [isSessionLoading, session, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,7 +126,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           name,
           email,
           password,
-          callbackURL,
+          callbackURL: callbackURL ?? "/services",
           registrationRole: role,
           ...(role === "vendor" ? { businessName } : {}),
         };
@@ -98,7 +144,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         const result = await authClient.signIn.email({
           email,
           password,
-          callbackURL,
+          callbackURL: callbackURL ?? "/services",
         });
 
         if (result.error) {
@@ -117,7 +163,10 @@ export function AuthForm({ mode }: AuthFormProps) {
           : "You are signed in.",
       });
 
-      router.replace(callbackURL);
+      const currentRole = await getCurrentUserRole();
+      const destinationRole = currentRole ?? (isSignUp ? role : undefined);
+
+      router.replace(callbackURL ?? getDashboardPath(destinationRole));
       router.refresh();
     } catch {
       setFeedback({
@@ -137,7 +186,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     try {
       const result = await authClient.signIn.social({
         provider: "google",
-        callbackURL: getSafeCallbackURL(),
+        callbackURL: getSafeCallbackURL() ?? "/sign-in",
       });
 
       if (result.error) {
@@ -328,12 +377,26 @@ export function AuthForm({ mode }: AuthFormProps) {
                   name="password"
                   type="password"
                   autoComplete={isSignUp ? "new-password" : "current-password"}
-                  minLength={8}
+                  minLength={6}
+                  pattern={isSignUp ? "(?=.*[a-z])(?=.*[A-Z]).{6,}" : undefined}
+                  title={
+                    isSignUp
+                      ? "Use at least 6 characters with one uppercase and one lowercase letter."
+                      : undefined
+                  }
                   required
                   disabled={isPending}
                   className="min-h-12 w-full rounded-xl border border-[#e7d9d2] bg-white px-4 text-sm outline-none transition placeholder:text-stone-400 focus:border-wedplan-rose focus:ring-4 focus:ring-[#96575b]/10 disabled:cursor-not-allowed disabled:bg-stone-50"
-                  placeholder="At least 8 characters"
+                  placeholder={
+                    isSignUp ? "At least 6 characters" : "Your password"
+                  }
                 />
+                {isSignUp && (
+                  <p className="mt-2 text-xs leading-5 text-stone-500">
+                    Use at least 6 characters with one uppercase and one
+                    lowercase letter.
+                  </p>
+                )}
               </div>
 
               <button
