@@ -28,7 +28,7 @@ type ProfileLink = {
 const navigationLinks = [
   { label: "Find services", href: "/services" },
   { label: "Categories", href: "/categories" },
-  { label: "How it works", href: "/#how-it-works" },
+  { label: "How it works", href: "/how-it-works" },
 ];
 
 const dashboardHrefByRole: Record<AccountRole, string> = {
