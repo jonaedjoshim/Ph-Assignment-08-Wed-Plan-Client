@@ -15,7 +15,6 @@ import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { SiteFooter } from "@/components/footer";
 import { ServiceImageUpload } from "@/components/service-image-upload";
-import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
 import {
   SERVICE_CATEGORIES,
@@ -226,15 +225,6 @@ function ServiceManagementSkeleton() {
   );
 }
 
-function SiteHeaderSkeleton() {
-  return (
-    <div
-      aria-hidden="true"
-      className="h-20 animate-pulse border-b border-[#eaded8] bg-white"
-    />
-  );
-}
-
 function VendorServicesContent() {
   const router = useRouter();
   const { data: session, isPending: isSessionPending } =
@@ -369,10 +359,13 @@ function VendorServicesContent() {
     setBillingNotice("");
 
     try {
-      const response = await apiFetch(`${API_BASE_URL}/api/stripe/checkout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      const response = await apiFetch(
+        `${API_BASE_URL}/api/vendor/subscription/checkout`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
 
       const payload: unknown = await response.json().catch(() => null);
 
@@ -392,59 +385,39 @@ function VendorServicesContent() {
 
       if (
         !isRecord(payload) ||
-        payload.success !== true ||
-        typeof payload.url !== "string"
+        typeof payload.checkoutUrl !== "string" ||
+        !isHttpUrl(payload.checkoutUrl)
       ) {
-        throw new Error("The checkout API returned an unexpected response.");
+        throw new Error("The checkout API returned an invalid checkout URL.");
       }
 
-      let checkoutUrl: URL;
-
-      try {
-        checkoutUrl = new URL(payload.url);
-      } catch {
-        throw new Error("Stripe returned an invalid checkout URL.");
-      }
-
-      if (
-        checkoutUrl.protocol !== "https:" ||
-        checkoutUrl.hostname !== "checkout.stripe.com"
-      ) {
-        throw new Error("Stripe returned an invalid checkout URL.");
-      }
-
-      window.location.assign(checkoutUrl.toString());
+      window.location.assign(payload.checkoutUrl);
     } catch (requestError) {
       setBillingError(
         requestError instanceof TypeError
-          ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
+          ? "Could not reach WedPlan API. Check that the server is running."
           : requestError instanceof Error
             ? requestError.message
-            : "Could not start Premium checkout.",
+            : "Could not start the subscription checkout.",
       );
     } finally {
       setBillingAction(null);
     }
   }
 
-  async function handlePremiumCancellation() {
-    const confirmed = window.confirm(
-      "Cancel Premium at the end of the current billing period? Your Premium access will remain active until then.",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+  async function handleCancelPremium() {
     setBillingAction("cancel");
     setBillingError(null);
     setBillingNotice("");
 
     try {
-      const response = await apiFetch(`${API_BASE_URL}/api/stripe/cancel`, {
-        method: "POST",
-        credentials: "include",
-      });
+      const response = await apiFetch(
+        `${API_BASE_URL}/api/vendor/subscription/cancel`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
 
       const payload: unknown = await response.json().catch(() => null);
 
@@ -458,29 +431,27 @@ function VendorServicesContent() {
       if (!response.ok) {
         throw new Error(
           getApiErrorMessage(payload) ??
-            `Could not cancel Premium (HTTP ${response.status}).`,
+            `Could not cancel subscription (HTTP ${response.status}).`,
         );
       }
 
       if (!isRecord(payload) || payload.success !== true) {
         throw new Error(
-          "The subscription API returned an unexpected response.",
+          "The cancellation API returned an unexpected response.",
         );
       }
 
       setCancellationScheduled(true);
       setBillingNotice(
-        typeof payload.message === "string"
-          ? payload.message
-          : "Premium cancellation is scheduled for the end of the current billing period.",
+        "Premium cancellation scheduled. Your premium access remains active until the current billing period ends.",
       );
     } catch (requestError) {
       setBillingError(
         requestError instanceof TypeError
-          ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
+          ? "Could not reach WedPlan API. Check that the server is running."
           : requestError instanceof Error
             ? requestError.message
-            : "Could not cancel Premium.",
+            : "Could not cancel the subscription.",
       );
     } finally {
       setBillingAction(null);
@@ -489,10 +460,10 @@ function VendorServicesContent() {
 
   function openCreateForm() {
     setEditingServiceId(null);
-    setFormValues({ ...initialFormValues });
+    setFormValues(initialFormValues);
     setFormError(null);
+    setPageNotice("");
     setIsFormOpen(true);
-    setDeleteTargetId(null);
   }
 
   function openEditForm(service: VendorService) {
@@ -506,26 +477,25 @@ function VendorServicesContent() {
       images: service.images ?? [],
     });
     setFormError(null);
+    setPageNotice("");
     setIsFormOpen(true);
-    setDeleteTargetId(null);
   }
 
   function closeForm() {
     setIsFormOpen(false);
     setEditingServiceId(null);
-    setFormValues({ ...initialFormValues });
+    setFormValues(initialFormValues);
     setFormError(null);
   }
 
-  async function handleSaveService(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const formData = new FormData(event.currentTarget);
-    const serviceName = String(formData.get("serviceName") ?? "").trim();
-    const categoryValue = formData.get("category");
-    const description = String(formData.get("description") ?? "").trim();
-    const priceValue = formData.get("price");
-    const location = String(formData.get("location") ?? "").trim();
+    const serviceName = formValues.serviceName.trim();
+    const description = formValues.description.trim();
+    const location = formValues.location.trim();
+    const categoryValue = formValues.category;
+    const priceValue = formValues.price.trim();
 
     if (!isServiceCategory(categoryValue)) {
       setFormError("Choose a valid service category.");
@@ -638,7 +608,6 @@ function VendorServicesContent() {
 
   async function handleDeleteService(serviceId: string) {
     setDeletingServiceId(serviceId);
-    setFormError(null);
     setPageNotice("");
 
     try {
@@ -667,16 +636,16 @@ function VendorServicesContent() {
       }
 
       if (!isRecord(payload) || payload.success !== true) {
-        throw new Error("The services API returned an unexpected response.");
+        throw new Error("The delete API returned an unexpected response.");
       }
 
       setDeleteTargetId(null);
       setPageNotice("Service deleted.");
       setRetryKey((current) => current + 1);
     } catch (requestError) {
-      setFormError(
+      setPageNotice(
         requestError instanceof TypeError
-          ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
+          ? "Could not reach WedPlan API. Check that the server is running."
           : requestError instanceof Error
             ? requestError.message
             : "Could not delete the service.",
@@ -685,6 +654,11 @@ function VendorServicesContent() {
       setDeletingServiceId(null);
     }
   }
+
+  const filteredServices =
+    statusFilter === "all"
+      ? services
+      : services.filter((service) => service.status === statusFilter);
 
   if (isLoading) {
     return <ServiceManagementSkeleton />;
@@ -697,12 +671,6 @@ function VendorServicesContent() {
         <p className="mt-3 text-sm leading-6 text-stone-600">
           Service management is available to vendor accounts.
         </p>
-        <Link
-          href="/"
-          className="mt-6 inline-flex min-h-10 items-center rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white"
-        >
-          Back to home
-        </Link>
       </section>
     );
   }
@@ -712,14 +680,14 @@ function VendorServicesContent() {
       <section className="mx-auto max-w-3xl px-5 py-16 text-center sm:px-8">
         <Search
           aria-hidden="true"
-          className="mx-auto h-8 w-8 text-wedplan-rose"
+          className="mx-auto h-9 w-9 text-wedplan-rose"
         />
         <h1 className="mt-4 text-2xl font-semibold">Services unavailable</h1>
         <p className="mt-3 text-sm leading-6 text-stone-600">{error}</p>
         <button
           type="button"
           onClick={() => setRetryKey((current) => current + 1)}
-          className="mt-6 inline-flex min-h-10 items-center rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white"
+          className="mt-6 inline-flex min-h-10 items-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white"
         >
           Try again
         </button>
@@ -727,118 +695,97 @@ function VendorServicesContent() {
     );
   }
 
-  const filteredServices =
-    statusFilter === "all"
-      ? services
-      : services.filter((service) => service.status === statusFilter);
-
   return (
     <section className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14">
       <Link
-        href="/"
+        href="/vendor"
         className="inline-flex items-center gap-2 text-sm font-medium text-stone-600 transition hover:text-wedplan-rose"
       >
         <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-        Back to home
+        Back to dashboard
       </Link>
 
-      <div className="mt-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wedplan-rose">
-            Vendor workspace
+      <div className="mt-7">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wedplan-rose">
+          Vendor workspace
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+          My services
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
+          Manage your service listings, review their status, and keep your
+          offerings up to date.
+        </p>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-[#eaded8] bg-white p-5">
+          <p className="text-sm text-stone-600">Active service listings</p>
+          <p className="mt-2 text-3xl font-semibold text-wedplan-ink">
+            {activeServiceCount}
           </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-            Manage your services
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-            Create and update your listings. New or edited services are sent for
-            review before appearing publicly.
+          <p className="mt-1 text-xs text-stone-500">
+            Pending and approved services count toward your limit.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreateForm}
-          disabled={!canAddService}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Plus aria-hidden="true" className="h-4 w-4" />
-          Add a service
-        </button>
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-[#eaded8] bg-white p-5">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-wedplan-ink">
-                {isPremium ? "Premium plan" : "Free plan"}
+        <div className="rounded-2xl border border-[#eaded8] bg-white p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-stone-600">Subscription</p>
+              <p className="mt-2 text-xl font-semibold">
+                {isPremium ? "Premium" : "Free plan"}
               </p>
-
-              {isPremium && (
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
-                  Premium
-                </span>
-              )}
             </div>
-
-            <p className="mt-2 text-sm leading-6 text-stone-600">
-              {isPremium
-                ? `${activeServiceCount} active service${activeServiceCount === 1 ? "" : "s"}. Your plan has no service limit.`
-                : `${activeServiceCount} of 3 active services used. Pending and approved listings count toward your free-plan limit.`}
-            </p>
-
-            {!isPremium && !canAddService && (
-              <p className="mt-2 text-sm font-medium text-wedplan-rose">
-                You have reached the free-plan limit. Upgrade to Premium to add
-                more services.
-              </p>
-            )}
-
-            {billingNotice && (
-              <p
-                role="status"
-                className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900"
-              >
-                {billingNotice}
-              </p>
-            )}
-
-            {billingError && (
-              <p
-                role="alert"
-                className="mt-3 rounded-xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800"
-              >
-                {billingError}
-              </p>
+            {isPremium && (
+              <Crown aria-hidden="true" className="h-6 w-6 text-amber-500" />
             )}
           </div>
 
-          {!isPremium ? (
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            {isPremium
+              ? "Your premium plan gives you access to unlimited service listings."
+              : "You can add up to 3 active service listings on the free plan."}
+          </p>
+
+          {!isPremium && (
             <button
               type="button"
               onClick={() => void handlePremiumCheckout()}
               disabled={billingAction !== null}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Crown aria-hidden="true" className="h-4 w-4" />
               {billingAction === "checkout"
-                ? "Opening secure checkout..."
-                : "Upgrade to Premium"}
+                ? "Redirecting..."
+                : "Upgrade to premium"}
             </button>
-          ) : (
+          )}
+
+          {isPremium && !cancellationScheduled && (
             <button
               type="button"
-              onClick={() => void handlePremiumCancellation()}
-              disabled={billingAction !== null || cancellationScheduled}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-[#e3d4cd] px-5 text-sm font-semibold text-stone-700 transition hover:bg-[#f5eae5] disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => void handleCancelPremium()}
+              disabled={billingAction !== null}
+              className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-[#e3d4cd] px-5 text-sm font-semibold text-stone-700 transition hover:bg-[#f5eae5] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {billingAction === "cancel"
-                ? "Scheduling cancellation..."
-                : cancellationScheduled
-                  ? "Cancellation scheduled"
-                  : "Cancel at period end"}
+              {billingAction === "cancel" ? "Processing..." : "Cancel premium"}
             </button>
+          )}
+
+          {billingNotice && (
+            <p
+              role="status"
+              className="mt-3 text-sm leading-6 text-emerald-700"
+            >
+              {billingNotice}
+            </p>
+          )}
+
+          {billingError && (
+            <p role="alert" className="mt-3 text-sm leading-6 text-rose-700">
+              {billingError}
+            </p>
           )}
         </div>
       </div>
@@ -846,46 +793,58 @@ function VendorServicesContent() {
       {pageNotice && (
         <p
           role="status"
-          className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="mt-6 rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800"
         >
           {pageNotice}
         </p>
       )}
 
-      {formError && !isFormOpen && (
-        <p
-          role="alert"
-          className="mt-5 rounded-xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800"
+      {!canAddService && !isFormOpen && (
+        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <h2 className="font-semibold text-amber-900">
+            Service limit reached
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-amber-800">
+            Your free plan allows up to 3 active service listings. Upgrade to
+            premium to add more.
+          </p>
+        </div>
+      )}
+
+      {!isFormOpen && canAddService && (
+        <button
+          type="button"
+          onClick={openCreateForm}
+          className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white transition hover:brightness-95"
         >
-          {formError}
-        </p>
+          <Plus aria-hidden="true" className="h-4 w-4" />
+          Add service
+        </button>
       )}
 
       {isFormOpen && (
         <form
-          id="service-form"
-          onSubmit={handleSaveService}
-          aria-busy={isSaving}
-          className="mt-8 rounded-2xl border border-[#eaded8] bg-white p-5 shadow-sm sm:p-7"
+          onSubmit={handleSubmit}
+          className="mt-8 rounded-2xl border border-[#eaded8] bg-white p-5 shadow-sm sm:p-6"
         >
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold">
                 {editingServiceId ? "Edit service" : "Add a service"}
               </h2>
-              <p className="mt-2 text-sm leading-6 text-stone-600">
-                Fill in the service details for your listing.
+              <p className="mt-1 text-sm text-stone-600">
+                Fill in the details below to manage your service listing.
               </p>
             </div>
 
             <button
               type="button"
-              aria-label="Close service form"
               onClick={closeForm}
               disabled={isSaving}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#e3d4cd] text-stone-600 transition hover:bg-[#f5eae5] disabled:opacity-50"
+              aria-label="Close form"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#e3d4cd] text-stone-600 transition hover:bg-[#f5eae5] disabled:opacity-60"
             >
-              <X aria-hidden="true" className="h-5 w-5" />
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
 
@@ -900,7 +859,6 @@ function VendorServicesContent() {
               <input
                 id="serviceName"
                 name="serviceName"
-                type="text"
                 required
                 maxLength={120}
                 value={formValues.serviceName}
@@ -949,15 +907,15 @@ function VendorServicesContent() {
                 htmlFor="servicePrice"
                 className="block text-sm font-semibold"
               >
-                Price in USD
+                Price (USD)
               </label>
               <input
                 id="servicePrice"
                 name="price"
                 type="number"
-                required
                 min="0"
                 step="0.01"
+                required
                 value={formValues.price}
                 onChange={(event) =>
                   setFormValues((current) => ({
@@ -975,12 +933,11 @@ function VendorServicesContent() {
                 htmlFor="serviceLocation"
                 className="block text-sm font-semibold"
               >
-                Service location
+                Location
               </label>
               <input
                 id="serviceLocation"
                 name="location"
-                type="text"
                 required
                 maxLength={200}
                 value={formValues.location}
@@ -1227,11 +1184,7 @@ function VendorServicesContent() {
 
 export default function VendorServicesPage() {
   return (
-    <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
-      <Suspense fallback={<SiteHeaderSkeleton />}>
-        <SiteHeader />
-      </Suspense>
-
+    <div className="bg-wedplan-cream text-wedplan-ink">
       <main className="min-h-[70vh]">
         <Suspense fallback={<ServiceManagementSkeleton />}>
           <VendorServicesContent />

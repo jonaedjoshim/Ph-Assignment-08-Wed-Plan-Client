@@ -15,7 +15,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { SiteFooter } from "@/components/footer";
-import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
 import { apiFetch } from "@/lib/api";
 
@@ -129,15 +128,6 @@ function AvailabilitySkeleton() {
         ))}
       </div>
     </section>
-  );
-}
-
-function SiteHeaderSkeleton() {
-  return (
-    <div
-      aria-hidden="true"
-      className="h-20 animate-pulse border-b border-[#eaded8] bg-white"
-    />
   );
 }
 
@@ -537,11 +527,7 @@ function VendorAvailabilityContent() {
 
 export default function VendorAvailabilityPage() {
   return (
-    <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
-      <Suspense fallback={<SiteHeaderSkeleton />}>
-        <SiteHeader />
-      </Suspense>
-
+    <div className="bg-wedplan-cream text-wedplan-ink">
       <main className="min-h-[70vh]">
         <Suspense fallback={<AvailabilitySkeleton />}>
           <VendorAvailabilityContent />

@@ -16,7 +16,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { SiteFooter } from "@/components/footer";
-import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
 import { apiFetch } from "@/lib/api";
 
@@ -247,15 +246,6 @@ function VendorBookingsSkeleton() {
   );
 }
 
-function SiteHeaderSkeleton() {
-  return (
-    <div
-      aria-hidden="true"
-      className="h-20 animate-pulse border-b border-[#eaded8] bg-white"
-    />
-  );
-}
-
 function VendorBookingsContent() {
   const router = useRouter();
   const { data: session, isPending: isSessionPending } =
@@ -267,12 +257,14 @@ function VendorBookingsContent() {
   const [statusFilter, setStatusFilter] = useState<BookingStatusFilter>("all");
   const [page, setPage] = useState(1);
   const [retryKey, setRetryKey] = useState(0);
+
   const [requestState, setRequestState] = useState<BookingRequestState>({
     key: "",
     bookings: null,
     pagination: null,
     error: null,
   });
+
   const [actionState, setActionState] = useState<BookingActionState>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState("");
@@ -285,6 +277,7 @@ function VendorBookingsContent() {
 
   const queryString = queryParams.toString();
   const requestUrl = `${API_BASE_URL}/api/vendor/bookings?${queryString}`;
+
   const requestKey = `${userId ?? "anonymous"}:${accountRole ?? "unknown"}:${queryString}:${retryKey}`;
 
   useEffect(() => {
@@ -367,6 +360,7 @@ function VendorBookingsContent() {
   }, [accountRole, isSessionPending, requestKey, requestUrl, router, userId]);
 
   const hasCurrentResult = requestState.key === requestKey;
+
   const isLoading =
     isSessionPending ||
     !userId ||
@@ -429,6 +423,7 @@ function VendorBookingsContent() {
           ? "Booking request accepted."
           : "Booking request rejected.",
       );
+
       setRetryKey((current) => current + 1);
     } catch (requestError) {
       setActionError(
@@ -454,10 +449,13 @@ function VendorBookingsContent() {
           aria-hidden="true"
           className="mx-auto h-9 w-9 text-wedplan-rose"
         />
+
         <h1 className="mt-4 text-2xl font-semibold">Vendor access required</h1>
+
         <p className="mt-3 text-sm leading-6 text-stone-600">
           Booking requests are available to vendor accounts.
         </p>
+
         <Link
           href="/"
           className="mt-6 inline-flex min-h-10 items-center rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white"
@@ -475,10 +473,13 @@ function VendorBookingsContent() {
           aria-hidden="true"
           className="mx-auto h-9 w-9 text-wedplan-rose"
         />
+
         <h1 className="mt-4 text-2xl font-semibold">
           Booking requests unavailable
         </h1>
+
         <p className="mt-3 text-sm leading-6 text-stone-600">{error}</p>
+
         <button
           type="button"
           onClick={() => setRetryKey((current) => current + 1)}
@@ -504,9 +505,11 @@ function VendorBookingsContent() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wedplan-rose">
           Vendor workspace
         </p>
+
         <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
           Booking requests
         </h1>
+
         <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
           Review customer requests for your services. Only pending requests can
           be accepted or rejected.
@@ -521,6 +524,7 @@ function VendorBookingsContent() {
           >
             Request status
           </label>
+
           <select
             id="bookingStatus"
             value={statusFilter}
@@ -571,9 +575,11 @@ function VendorBookingsContent() {
             aria-hidden="true"
             className="mx-auto h-8 w-8 text-wedplan-rose"
           />
+
           <h2 className="mt-4 text-lg font-semibold">
             No booking requests found
           </h2>
+
           <p className="mt-2 text-sm leading-6 text-stone-600">
             New customer requests for your services will appear here.
           </p>
@@ -633,6 +639,7 @@ function VendorBookingsContent() {
                           aria-hidden="true"
                           className="mt-0.5 h-4 w-4 shrink-0 text-wedplan-rose"
                         />
+
                         <span>
                           Event date:{" "}
                           <span className="font-medium text-wedplan-ink">
@@ -646,6 +653,7 @@ function VendorBookingsContent() {
                           aria-hidden="true"
                           className="mt-0.5 h-4 w-4 shrink-0 text-wedplan-rose"
                         />
+
                         <span>
                           Request received:{" "}
                           <span className="font-medium text-wedplan-ink">
@@ -659,6 +667,7 @@ function VendorBookingsContent() {
                           aria-hidden="true"
                           className="mt-0.5 h-4 w-4 shrink-0 text-wedplan-rose"
                         />
+
                         <span className="min-w-0 break-all">
                           Customer:{" "}
                           <span className="font-medium text-wedplan-ink">
@@ -683,6 +692,7 @@ function VendorBookingsContent() {
                           />
                           Customer message
                         </p>
+
                         <p className="mt-2 whitespace-pre-line break-words text-sm leading-6 text-stone-600">
                           {booking.message}
                         </p>
@@ -700,6 +710,7 @@ function VendorBookingsContent() {
                           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <Check aria-hidden="true" className="h-4 w-4" />
+
                           {actionIsRunning &&
                           actionState?.decision === "accepted"
                             ? "Accepting..."
@@ -715,6 +726,7 @@ function VendorBookingsContent() {
                           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-rose-200 px-5 text-sm font-semibold text-rose-800 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <X aria-hidden="true" className="h-4 w-4" />
+
                           {actionIsRunning &&
                           actionState?.decision === "rejected"
                             ? "Rejecting..."
@@ -766,11 +778,7 @@ function VendorBookingsContent() {
 
 export default function VendorBookingsPage() {
   return (
-    <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
-      <Suspense fallback={<SiteHeaderSkeleton />}>
-        <SiteHeader />
-      </Suspense>
-
+    <div className="bg-wedplan-cream text-wedplan-ink">
       <main className="min-h-[70vh]">
         <Suspense fallback={<VendorBookingsSkeleton />}>
           <VendorBookingsContent />
