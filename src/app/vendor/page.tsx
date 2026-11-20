@@ -432,7 +432,7 @@ function VendorDashboardContent() {
           </div>
 
           <Link
-            href="/vendor/services"
+            href="/vendor/subscription"
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white transition hover:brightness-95"
           >
             {isPremium ? "Manage plan" : "View plans"}
