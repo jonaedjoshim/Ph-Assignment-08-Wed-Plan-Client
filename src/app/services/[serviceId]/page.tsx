@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@heroui/react";
-import { ArrowLeft, MapPin, Search } from "lucide-react";
+import { Button, addToast } from "@heroui/react";
+import { ArrowLeft, MapPin, Search, Store } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -14,6 +14,12 @@ import {
   type ServiceCategory,
 } from "@/lib/service-categories";
 
+type ApiVendor = {
+  id: string;
+  name: string;
+  businessName: string;
+};
+
 type ApiService = {
   _id: string;
   serviceName: string;
@@ -22,6 +28,7 @@ type ApiService = {
   price: number;
   location: string;
   images?: string[];
+  vendor?: ApiVendor | null;
 };
 
 type ServiceDetailResponse = {
@@ -92,6 +99,18 @@ function isServiceCategory(value: unknown): value is ServiceCategory {
   );
 }
 
+function isApiVendor(value: unknown): value is ApiVendor {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.businessName === "string"
+  );
+}
+
 function isApiService(value: unknown): value is ApiService {
   if (!isRecord(value)) {
     return false;
@@ -102,6 +121,11 @@ function isApiService(value: unknown): value is ApiService {
     (Array.isArray(value.images) &&
       value.images.every((image) => typeof image === "string"));
 
+  const validVendor =
+    value.vendor === undefined ||
+    value.vendor === null ||
+    isApiVendor(value.vendor);
+
   return (
     typeof value._id === "string" &&
     typeof value.serviceName === "string" &&
@@ -109,7 +133,8 @@ function isApiService(value: unknown): value is ApiService {
     typeof value.description === "string" &&
     typeof value.price === "number" &&
     typeof value.location === "string" &&
-    validImages
+    validImages &&
+    validVendor
   );
 }
 
@@ -131,6 +156,14 @@ function getApiErrorMessage(value: unknown): string | null {
 
 function isValidServiceId(value: string): boolean {
   return /^[a-fA-F0-9]{24}$/.test(value);
+}
+
+function getLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function ServiceDetailSkeleton() {
@@ -208,11 +241,41 @@ function ServiceDetailError({
   );
 }
 
+function VendorDetails({ vendor }: { vendor: ApiVendor | null | undefined }) {
+  if (!vendor) {
+    return (
+      <div className="rounded-2xl border border-[#eaded8] bg-white p-5">
+        <p className="text-sm text-stone-500">Vendor</p>
+        <p className="mt-1 text-base font-semibold">
+          Vendor information unavailable
+        </p>
+      </div>
+    );
+  }
+
+  const displayName = vendor.businessName.trim() || vendor.name;
+
+  return (
+    <div className="flex items-center gap-4 rounded-2xl border border-[#eaded8] bg-white p-5">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f8f2ef] text-wedplan-rose">
+        <Store aria-hidden="true" className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm text-stone-500">Vendor</p>
+        <p className="mt-1 truncate text-base font-semibold">{displayName}</p>
+        {vendor.businessName.trim() && vendor.name && (
+          <p className="truncate text-sm text-stone-500">{vendor.name}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function BookingRequestForm({ serviceId }: { serviceId: string }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<BookingFeedback>(null);
-  const minimumEventDate = new Date().toISOString().slice(0, 10);
+  const minimumEventDate = getLocalDateString(new Date());
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -228,17 +291,25 @@ function BookingRequestForm({ serviceId }: { serviceId: string }) {
       typeof eventLocation !== "string" ||
       typeof message !== "string"
     ) {
-      setFeedback({
-        type: "error",
-        message: "Please complete the booking form and try again.",
+      const errorMessage = "Please complete the booking form and try again.";
+
+      setFeedback({ type: "error", message: errorMessage });
+      addToast({
+        title: "Booking not sent",
+        description: errorMessage,
+        color: "danger",
       });
       return;
     }
 
     if (eventDate < minimumEventDate) {
-      setFeedback({
-        type: "error",
-        message: "Event date cannot be in the past.",
+      const errorMessage = "Event date cannot be in the past.";
+
+      setFeedback({ type: "error", message: errorMessage });
+      addToast({
+        title: "Booking not sent",
+        description: errorMessage,
+        color: "danger",
       });
       return;
     }
@@ -288,15 +359,24 @@ function BookingRequestForm({ serviceId }: { serviceId: string }) {
         type: "success",
         message: "Your booking request has been sent.",
       });
+      addToast({
+        title: "Booking request sent",
+        description: "The vendor will review your request.",
+        color: "success",
+      });
     } catch (requestError) {
-      setFeedback({
-        type: "error",
-        message:
-          requestError instanceof TypeError
-            ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
-            : requestError instanceof Error
-              ? requestError.message
-              : "Could not send the booking request.",
+      const errorMessage =
+        requestError instanceof TypeError
+          ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
+          : requestError instanceof Error
+            ? requestError.message
+            : "Could not send the booking request.";
+
+      setFeedback({ type: "error", message: errorMessage });
+      addToast({
+        title: "Booking not sent",
+        description: errorMessage,
+        color: "danger",
       });
     } finally {
       setIsSubmitting(false);
@@ -598,11 +678,15 @@ function ServiceDetailContent() {
             {service.location}
           </div>
 
-          <div className="mt-8 rounded-2xl border border-[#eaded8] bg-white p-5">
-            <p className="text-sm text-stone-500">Service price</p>
-            <p className="mt-1 text-2xl font-semibold">
-              {priceFormatter.format(service.price)}
-            </p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-[#eaded8] bg-white p-5">
+              <p className="text-sm text-stone-500">Service price</p>
+              <p className="mt-1 text-2xl font-semibold">
+                {priceFormatter.format(service.price)}
+              </p>
+            </div>
+
+            <VendorDetails vendor={service.vendor} />
           </div>
         </div>
       </article>
