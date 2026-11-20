@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  Crown,
   MapPin,
   Pencil,
   Plus,
@@ -255,6 +256,12 @@ function VendorServicesContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [pageNotice, setPageNotice] = useState("");
+  const [billingAction, setBillingAction] = useState<
+    "checkout" | "cancel" | null
+  >(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingNotice, setBillingNotice] = useState("");
+  const [cancellationScheduled, setCancellationScheduled] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deletingServiceId, setDeletingServiceId] = useState<string | null>(
     null,
@@ -353,6 +360,130 @@ function VendorServicesContent() {
   ).length;
 
   const canAddService = isPremium || activeServiceCount < 3;
+
+  async function handlePremiumCheckout() {
+    setBillingAction("checkout");
+    setBillingError(null);
+    setBillingNotice("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/checkout`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (response.status === 401) {
+        router.replace(
+          `/sign-in?callbackURL=${encodeURIComponent("/vendor/services")}`,
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(payload) ??
+            `Could not start checkout (HTTP ${response.status}).`,
+        );
+      }
+
+      if (
+        !isRecord(payload) ||
+        payload.success !== true ||
+        typeof payload.url !== "string"
+      ) {
+        throw new Error("The checkout API returned an unexpected response.");
+      }
+
+      let checkoutUrl: URL;
+
+      try {
+        checkoutUrl = new URL(payload.url);
+      } catch {
+        throw new Error("Stripe returned an invalid checkout URL.");
+      }
+
+      if (
+        checkoutUrl.protocol !== "https:" ||
+        checkoutUrl.hostname !== "checkout.stripe.com"
+      ) {
+        throw new Error("Stripe returned an invalid checkout URL.");
+      }
+
+      window.location.assign(checkoutUrl.toString());
+    } catch (requestError) {
+      setBillingError(
+        requestError instanceof TypeError
+          ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
+          : requestError instanceof Error
+            ? requestError.message
+            : "Could not start Premium checkout.",
+      );
+    } finally {
+      setBillingAction(null);
+    }
+  }
+
+  async function handlePremiumCancellation() {
+    const confirmed = window.confirm(
+      "Cancel Premium at the end of the current billing period? Your Premium access will remain active until then.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setBillingAction("cancel");
+    setBillingError(null);
+    setBillingNotice("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/cancel`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (response.status === 401) {
+        router.replace(
+          `/sign-in?callbackURL=${encodeURIComponent("/vendor/services")}`,
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(payload) ??
+            `Could not cancel Premium (HTTP ${response.status}).`,
+        );
+      }
+
+      if (!isRecord(payload) || payload.success !== true) {
+        throw new Error(
+          "The subscription API returned an unexpected response.",
+        );
+      }
+
+      setCancellationScheduled(true);
+      setBillingNotice(
+        typeof payload.message === "string"
+          ? payload.message
+          : "Premium cancellation is scheduled for the end of the current billing period.",
+      );
+    } catch (requestError) {
+      setBillingError(
+        requestError instanceof TypeError
+          ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
+          : requestError instanceof Error
+            ? requestError.message
+            : "Could not cancel Premium.",
+      );
+    } finally {
+      setBillingAction(null);
+    }
+  }
 
   function openCreateForm() {
     setEditingServiceId(null);
@@ -637,20 +768,79 @@ function VendorServicesContent() {
       </div>
 
       <div className="mt-6 rounded-2xl border border-[#eaded8] bg-white p-5">
-        <p className="text-sm font-semibold text-wedplan-ink">
-          {isPremium ? "Premium plan" : "Free plan"}
-        </p>
-        <p className="mt-2 text-sm leading-6 text-stone-600">
-          {isPremium
-            ? `${activeServiceCount} active service${activeServiceCount === 1 ? "" : "s"}. Your plan has no service limit.`
-            : `${activeServiceCount} of 3 active services used. Pending and approved listings count toward your free-plan limit.`}
-        </p>
-        {!isPremium && !canAddService && (
-          <p className="mt-2 text-sm font-medium text-wedplan-rose">
-            You have reached the free-plan limit. Remove an active service to
-            add another.
-          </p>
-        )}
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-wedplan-ink">
+                {isPremium ? "Premium plan" : "Free plan"}
+              </p>
+
+              {isPremium && (
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
+                  Premium
+                </span>
+              )}
+            </div>
+
+            <p className="mt-2 text-sm leading-6 text-stone-600">
+              {isPremium
+                ? `${activeServiceCount} active service${activeServiceCount === 1 ? "" : "s"}. Your plan has no service limit.`
+                : `${activeServiceCount} of 3 active services used. Pending and approved listings count toward your free-plan limit.`}
+            </p>
+
+            {!isPremium && !canAddService && (
+              <p className="mt-2 text-sm font-medium text-wedplan-rose">
+                You have reached the free-plan limit. Upgrade to Premium to add
+                more services.
+              </p>
+            )}
+
+            {billingNotice && (
+              <p
+                role="status"
+                className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900"
+              >
+                {billingNotice}
+              </p>
+            )}
+
+            {billingError && (
+              <p
+                role="alert"
+                className="mt-3 rounded-xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800"
+              >
+                {billingError}
+              </p>
+            )}
+          </div>
+
+          {!isPremium ? (
+            <button
+              type="button"
+              onClick={() => void handlePremiumCheckout()}
+              disabled={billingAction !== null}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Crown aria-hidden="true" className="h-4 w-4" />
+              {billingAction === "checkout"
+                ? "Opening secure checkout..."
+                : "Upgrade to Premium"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void handlePremiumCancellation()}
+              disabled={billingAction !== null || cancellationScheduled}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-[#e3d4cd] px-5 text-sm font-semibold text-stone-700 transition hover:bg-[#f5eae5] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {billingAction === "cancel"
+                ? "Scheduling cancellation..."
+                : cancellationScheduled
+                  ? "Cancellation scheduled"
+                  : "Cancel at period end"}
+            </button>
+          )}
+        </div>
       </div>
 
       {pageNotice && (
