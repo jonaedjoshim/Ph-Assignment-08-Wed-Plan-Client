@@ -26,6 +26,11 @@ import {
 type CategoryFilter = "All categories" | ServiceCategory;
 type SortOrder = "recommended" | "price-ascending" | "price-descending";
 
+type ApiVendor = {
+  name: string;
+  businessName: string;
+};
+
 type ApiService = {
   _id: string;
   serviceName: string;
@@ -33,7 +38,8 @@ type ApiService = {
   description: string;
   price: number;
   location: string;
-  images?: string[];
+  images: string[];
+  vendor: ApiVendor | null;
 };
 
 type ServicePagination = {
@@ -43,8 +49,7 @@ type ServicePagination = {
   totalPages: number;
 };
 
-type ServiceListResponse = {
-  success: true;
+type ServiceListResult = {
   services: ApiService[];
   pagination: ServicePagination;
 };
@@ -103,53 +108,14 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
-function isServiceCategory(value: string | null): value is ServiceCategory {
-  return (
-    value !== null && (SERVICE_CATEGORIES as readonly string[]).includes(value)
-  );
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isApiService(value: unknown): value is ApiService {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const validImages =
-    value.images === undefined ||
-    (Array.isArray(value.images) &&
-      value.images.every((image) => typeof image === "string"));
-
+function isServiceCategory(value: unknown): value is ServiceCategory {
   return (
-    typeof value._id === "string" &&
-    typeof value.serviceName === "string" &&
-    typeof value.category === "string" &&
-    isServiceCategory(value.category) &&
-    typeof value.description === "string" &&
-    typeof value.price === "number" &&
-    typeof value.location === "string" &&
-    validImages
-  );
-}
-
-function isServiceListResponse(value: unknown): value is ServiceListResponse {
-  if (!isRecord(value) || !isRecord(value.pagination)) {
-    return false;
-  }
-
-  const pagination = value.pagination;
-
-  return (
-    value.success === true &&
-    Array.isArray(value.services) &&
-    value.services.every(isApiService) &&
-    typeof pagination.page === "number" &&
-    typeof pagination.limit === "number" &&
-    typeof pagination.total === "number" &&
-    typeof pagination.totalPages === "number"
+    typeof value === "string" &&
+    (SERVICE_CATEGORIES as readonly string[]).includes(value)
   );
 }
 
@@ -159,6 +125,101 @@ function getApiErrorMessage(value: unknown): string | null {
   }
 
   return null;
+}
+
+function parseVendor(value: unknown): ApiVendor | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  return {
+    name: typeof value.name === "string" ? value.name : "",
+    businessName:
+      typeof value.businessName === "string" ? value.businessName : "",
+  };
+}
+
+function getVendorLabel(vendor: ApiVendor | null): string | null {
+  const label = vendor?.businessName.trim() || vendor?.name.trim();
+
+  return label ? label : null;
+}
+
+function parseApiService(value: unknown): ApiService | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = value._id;
+  const serviceName = value.serviceName;
+  const category = value.category;
+  const description = value.description;
+  const price = value.price;
+  const location = value.location;
+  const images = Array.isArray(value.images)
+    ? value.images.filter((image): image is string => typeof image === "string")
+    : [];
+
+  if (
+    typeof id !== "string" ||
+    typeof serviceName !== "string" ||
+    !isServiceCategory(category) ||
+    typeof description !== "string" ||
+    typeof price !== "number" ||
+    typeof location !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    _id: id,
+    serviceName,
+    category,
+    description,
+    price,
+    location,
+    images,
+    vendor: parseVendor(value.vendor),
+  };
+}
+
+function parseServiceListResponse(value: unknown): ServiceListResult | null {
+  if (
+    !isRecord(value) ||
+    value.success !== true ||
+    !Array.isArray(value.services) ||
+    !isRecord(value.pagination)
+  ) {
+    return null;
+  }
+
+  const { page, limit, total, totalPages } = value.pagination;
+
+  if (
+    typeof page !== "number" ||
+    typeof limit !== "number" ||
+    typeof total !== "number" ||
+    typeof totalPages !== "number"
+  ) {
+    return null;
+  }
+
+  const services: ApiService[] = [];
+
+  for (const item of value.services) {
+    const service = parseApiService(item);
+
+    if (!service) {
+      return null;
+    }
+
+    services.push(service);
+  }
+
+  return {
+    services,
+    pagination: { page, limit, total, totalPages },
+  };
 }
 
 function ServiceCardSkeleton() {
@@ -248,6 +309,8 @@ function ServicesBrowser({
 }) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [location, setLocation] = useState("");
+  const [debouncedLocation, setDebouncedLocation] = useState("");
   const [activeCategory, setActiveCategory] =
     useState<CategoryFilter>(initialCategory);
   const [sortOrder, setSortOrder] = useState<SortOrder>("recommended");
@@ -274,6 +337,14 @@ function ServicesBrowser({
     return () => window.clearTimeout(timeoutId);
   }, [search]);
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedLocation(location.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [location]);
+
   const request = useMemo(() => {
     const params = new URLSearchParams();
 
@@ -289,6 +360,10 @@ function ServicesBrowser({
       params.set("search", debouncedSearch);
     }
 
+    if (debouncedLocation) {
+      params.set("location", debouncedLocation);
+    }
+
     const query = params.toString();
 
     return {
@@ -296,7 +371,14 @@ function ServicesBrowser({
       url: `${API_BASE_URL}/api/services?${query}`,
       page,
     };
-  }, [activeCategory, debouncedSearch, page, reloadKey, sortOrder]);
+  }, [
+    activeCategory,
+    debouncedLocation,
+    debouncedSearch,
+    page,
+    reloadKey,
+    sortOrder,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -316,7 +398,9 @@ function ServicesBrowser({
           );
         }
 
-        if (!isServiceListResponse(payload)) {
+        const result = parseServiceListResponse(payload);
+
+        if (!result) {
           throw new Error("The services API returned an unexpected response.");
         }
 
@@ -326,8 +410,8 @@ function ServicesBrowser({
 
         setRequestResult({
           key: request.key,
-          services: payload.services,
-          pagination: payload.pagination,
+          services: result.services,
+          pagination: result.pagination,
           error: null,
         });
       } catch (requestError) {
@@ -374,12 +458,15 @@ function ServicesBrowser({
 
   const hasActiveFilters =
     search.trim().length > 0 ||
+    location.trim().length > 0 ||
     activeCategory !== "All categories" ||
     sortOrder !== "recommended";
 
   function clearFilters() {
     setSearch("");
     setDebouncedSearch("");
+    setLocation("");
+    setDebouncedLocation("");
     setActiveCategory("All categories");
     setSortOrder("recommended");
     setPage(1);
@@ -408,30 +495,55 @@ function ServicesBrowser({
             </h1>
             <p className="mt-4 max-w-2xl leading-7 text-stone-600">
               Search by service, description, or location, then narrow down your
-              options by category and price.
+              options by category, location, and price.
             </p>
           </div>
 
-          <div className="mt-8 max-w-2xl">
-            <label htmlFor="service-search" className="sr-only">
-              Search services, descriptions, or locations
-            </label>
-            <div className="flex items-center gap-3 rounded-2xl border border-[#e7d9d2] bg-white px-4 shadow-sm transition focus-within:border-wedplan-rose focus-within:ring-4 focus-within:ring-[#96575b]/10">
-              <Search
-                aria-hidden="true"
-                className="h-5 w-5 shrink-0 text-stone-400"
-              />
-              <input
-                id="service-search"
-                type="search"
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setPage(1);
-                }}
-                placeholder="Try photography, venues, or Dhaka"
-                className="min-h-14 w-full bg-transparent text-sm outline-none placeholder:text-stone-400"
-              />
+          <div className="mt-8 grid max-w-3xl gap-3 sm:grid-cols-[1fr_15rem]">
+            <div>
+              <label htmlFor="service-search" className="sr-only">
+                Search services, descriptions, or locations
+              </label>
+              <div className="flex items-center gap-3 rounded-2xl border border-[#e7d9d2] bg-white px-4 shadow-sm transition focus-within:border-wedplan-rose focus-within:ring-4 focus-within:ring-[#96575b]/10">
+                <Search
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 text-stone-400"
+                />
+                <input
+                  id="service-search"
+                  type="search"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Try photography, venues, or florist"
+                  className="min-h-14 w-full bg-transparent text-sm outline-none placeholder:text-stone-400"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="service-location" className="sr-only">
+                Filter by location
+              </label>
+              <div className="flex items-center gap-3 rounded-2xl border border-[#e7d9d2] bg-white px-4 shadow-sm transition focus-within:border-wedplan-rose focus-within:ring-4 focus-within:ring-[#96575b]/10">
+                <MapPin
+                  aria-hidden="true"
+                  className="h-5 w-5 shrink-0 text-stone-400"
+                />
+                <input
+                  id="service-location"
+                  type="text"
+                  value={location}
+                  onChange={(event) => {
+                    setLocation(event.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Location"
+                  className="min-h-14 w-full bg-transparent text-sm outline-none placeholder:text-stone-400"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -574,7 +686,8 @@ function ServicesBrowser({
           <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {services.map((service) => {
               const Icon = categoryIcons[service.category];
-              const imageUrl = service.images?.[0];
+              const imageUrl = service.images[0];
+              const vendorLabel = getVendorLabel(service.vendor);
 
               return (
                 <Link
@@ -626,6 +739,12 @@ function ServicesBrowser({
                         {service.serviceName}
                       </h2>
 
+                      {vendorLabel && (
+                        <p className="mt-1 text-sm text-stone-500">
+                          by {vendorLabel}
+                        </p>
+                      )}
+
                       <p className="mt-2 min-h-12 text-sm leading-6 text-stone-600">
                         {service.description}
                       </p>
@@ -655,12 +774,12 @@ function ServicesBrowser({
             />
             <h2 className="mt-4 text-lg font-semibold">
               {hasActiveFilters
-                ? "No services match your search."
+                ? "No services match your filters."
                 : "No approved services are available yet."}
             </h2>
             <p className="mt-2 text-sm text-stone-600">
               {hasActiveFilters
-                ? "Try another search term or clear your filters."
+                ? "Try another search term or location, or clear your filters."
                 : "Approved vendor listings will appear here."}
             </p>
             {hasActiveFilters && (
