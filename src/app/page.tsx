@@ -21,6 +21,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SiteFooter } from "@/components/footer";
+import { PremiumBadge } from "@/components/premium-badge";
 import { SiteHeader } from "@/components/site-header";
 import {
   SERVICE_CATEGORIES,
@@ -30,6 +31,7 @@ import {
 type FeaturedVendor = {
   name: string;
   businessName: string;
+  isPremium: boolean;
 };
 
 type FeaturedService = {
@@ -203,6 +205,7 @@ function parseVendor(value: unknown): FeaturedVendor | null {
     name: typeof value.name === "string" ? value.name : "",
     businessName:
       typeof value.businessName === "string" ? value.businessName : "",
+    isPremium: value.isPremium === true,
   };
 }
 
@@ -347,7 +350,10 @@ function FeaturedServiceCard({ service }: { service: FeaturedService }) {
         </h3>
 
         {vendorLabel && (
-          <p className="mt-1 text-sm text-stone-500">by {vendorLabel}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-stone-500">
+            <span>by {vendorLabel}</span>
+            {service.vendor?.isPremium && <PremiumBadge />}
+          </div>
         )}
 
         <p className="mt-3 line-clamp-2 text-sm leading-6 text-stone-600">

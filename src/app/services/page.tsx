@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { SiteFooter } from "@/components/footer";
+import { PremiumBadge } from "@/components/premium-badge";
 import { SiteHeader } from "@/components/site-header";
 import {
   SERVICE_CATEGORIES,
@@ -29,6 +30,7 @@ type SortOrder = "recommended" | "price-ascending" | "price-descending";
 type ApiVendor = {
   name: string;
   businessName: string;
+  isPremium: boolean;
 };
 
 type ApiService = {
@@ -136,6 +138,7 @@ function parseVendor(value: unknown): ApiVendor | null {
     name: typeof value.name === "string" ? value.name : "",
     businessName:
       typeof value.businessName === "string" ? value.businessName : "",
+    isPremium: value.isPremium === true,
   };
 }
 
@@ -740,9 +743,10 @@ function ServicesBrowser({
                       </h2>
 
                       {vendorLabel && (
-                        <p className="mt-1 text-sm text-stone-500">
-                          by {vendorLabel}
-                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-stone-500">
+                          <span>by {vendorLabel}</span>
+                          {service.vendor?.isPremium && <PremiumBadge />}
+                        </div>
                       )}
 
                       <p className="mt-2 min-h-12 text-sm leading-6 text-stone-600">

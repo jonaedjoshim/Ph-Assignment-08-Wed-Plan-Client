@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { SiteFooter } from "@/components/footer";
+import { PremiumBadge } from "@/components/premium-badge";
 import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -18,6 +19,7 @@ type ApiVendor = {
   id: string;
   name: string;
   businessName: string;
+  isPremium?: boolean;
 };
 
 type ApiService = {
@@ -107,7 +109,8 @@ function isApiVendor(value: unknown): value is ApiVendor {
   return (
     typeof value.id === "string" &&
     typeof value.name === "string" &&
-    typeof value.businessName === "string"
+    typeof value.businessName === "string" &&
+    (value.isPremium === undefined || typeof value.isPremium === "boolean")
   );
 }
 
@@ -265,6 +268,11 @@ function VendorDetails({ vendor }: { vendor: ApiVendor | null | undefined }) {
         <p className="mt-1 truncate text-base font-semibold">{displayName}</p>
         {vendor.businessName.trim() && vendor.name && (
           <p className="truncate text-sm text-stone-500">{vendor.name}</p>
+        )}
+        {vendor.isPremium && (
+          <div className="mt-2">
+            <PremiumBadge />
+          </div>
         )}
       </div>
     </div>
