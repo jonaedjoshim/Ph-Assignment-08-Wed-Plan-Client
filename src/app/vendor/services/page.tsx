@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { SiteFooter } from "@/components/footer";
+import { ServiceImageUpload } from "@/components/service-image-upload";
 import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -53,7 +54,7 @@ type ServiceFormValues = {
   description: string;
   price: string;
   location: string;
-  images: string;
+  images: string[];
 };
 
 const API_BASE_URL = (
@@ -66,7 +67,7 @@ const initialFormValues: ServiceFormValues = {
   description: "",
   price: "",
   location: "",
-  images: "",
+  images: [],
 };
 
 const serviceFilters: { value: ServiceFilter; label: string }[] = [
@@ -501,7 +502,7 @@ function VendorServicesContent() {
       description: service.description,
       price: String(service.price),
       location: service.location,
-      images: service.images?.join("\n") ?? "",
+      images: service.images ?? [],
     });
     setFormError(null);
     setIsFormOpen(true);
@@ -524,7 +525,6 @@ function VendorServicesContent() {
     const description = String(formData.get("description") ?? "").trim();
     const priceValue = formData.get("price");
     const location = String(formData.get("location") ?? "").trim();
-    const imagesValue = String(formData.get("images") ?? "");
 
     if (!isServiceCategory(categoryValue)) {
       setFormError("Choose a valid service category.");
@@ -558,18 +558,17 @@ function VendorServicesContent() {
       return;
     }
 
-    const images = imagesValue
-      .split(/[\n,]/)
+    const images = formValues.images
       .map((image) => image.trim())
       .filter(Boolean);
 
     if (images.length > 10) {
-      setFormError("You can add at most 10 image URLs.");
+      setFormError("You can add at most 10 service images.");
       return;
     }
 
     if (!images.every(isHttpUrl)) {
-      setFormError("Each image URL must start with HTTP or HTTPS.");
+      setFormError("Each service image must have a valid HTTP or HTTPS URL.");
       return;
     }
 
@@ -1021,29 +1020,15 @@ function VendorServicesContent() {
             </div>
 
             <div className="sm:col-span-2">
-              <label
-                htmlFor="serviceImages"
-                className="block text-sm font-semibold"
-              >
-                Image URLs
-                <span className="ml-1 font-normal text-stone-500">
-                  (optional, up to 10)
-                </span>
-              </label>
-              <textarea
-                id="serviceImages"
-                name="images"
-                rows={3}
+              <ServiceImageUpload
                 value={formValues.images}
-                onChange={(event) =>
+                onChange={(images) =>
                   setFormValues((current) => ({
                     ...current,
-                    images: event.target.value,
+                    images,
                   }))
                 }
-                disabled={isSaving}
-                placeholder="Add one HTTP or HTTPS URL per line"
-                className="mt-2 w-full resize-y rounded-xl border border-[#e3d4cd] bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-stone-400 focus:border-wedplan-rose focus:ring-2 focus:ring-wedplan-rose/20 disabled:bg-stone-100"
+                maxImages={10}
               />
             </div>
           </div>
