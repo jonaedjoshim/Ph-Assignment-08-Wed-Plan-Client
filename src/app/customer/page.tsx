@@ -15,7 +15,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { SiteFooter } from "@/components/footer";
-import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
 import { apiFetch } from "@/lib/api";
 
@@ -148,15 +147,6 @@ function CustomerDashboardSkeleton() {
   );
 }
 
-function SiteHeaderSkeleton() {
-  return (
-    <div
-      aria-hidden="true"
-      className="h-20 animate-pulse border-b border-[#eaded8] bg-white"
-    />
-  );
-}
-
 function MetricCard({ label, value, icon, href }: MetricCardProps) {
   return (
     <Link
@@ -219,10 +209,17 @@ function CustomerDashboardContent() {
 
         const payload: unknown = await response.json().catch(() => null);
 
+        if (controller.signal.aborted) {
+          return;
+        }
+
         if (response.status === 401) {
-          router.replace(
-            `/sign-in?callbackURL=${encodeURIComponent("/customer")}`,
-          );
+          setRequestState({
+            key: requestKey,
+            dashboard: null,
+            error:
+              "Your session could not be verified. Please try again. If this continues, sign out and sign in again.",
+          });
           return;
         }
 
@@ -237,10 +234,6 @@ function CustomerDashboardContent() {
           throw new Error(
             "The customer dashboard API returned an unexpected response.",
           );
-        }
-
-        if (controller.signal.aborted) {
-          return;
         }
 
         setRequestState({
@@ -458,11 +451,7 @@ function CustomerDashboardContent() {
 
 export default function CustomerDashboardPage() {
   return (
-    <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
-      <Suspense fallback={<SiteHeaderSkeleton />}>
-        <SiteHeader />
-      </Suspense>
-
+    <div className="bg-wedplan-cream text-wedplan-ink">
       <main className="min-h-[70vh]">
         <Suspense fallback={<CustomerDashboardSkeleton />}>
           <CustomerDashboardContent />

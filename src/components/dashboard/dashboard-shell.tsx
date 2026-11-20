@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
 
 export type DashboardVariant = "customer" | "vendor" | "admin";
@@ -77,6 +78,15 @@ function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function DashboardHeaderSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="h-[73px] border-b border-[#eaded8]/70 bg-[#fffaf7]/90"
+    />
+  );
+}
+
 export function DashboardShell({
   variant,
   children,
@@ -130,7 +140,13 @@ export function DashboardShell({
         </nav>
       </aside>
 
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Suspense fallback={<DashboardHeaderSkeleton />}>
+          <SiteHeader />
+        </Suspense>
+
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
     </div>
   );
 }
