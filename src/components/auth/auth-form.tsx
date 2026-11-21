@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowRight, Heart, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Heart, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { invalidateTokenCache } from "@/lib/api";
 import { SiteHeader } from "../site-header";
 import { SiteFooter } from "../footer";
 
@@ -94,6 +95,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     authClient.useSession();
 
   const [role, setRole] = useState<AccountRole>("customer");
+  const [showPassword, setShowPassword] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
@@ -166,6 +168,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       const currentRole = await getCurrentUserRole();
       const destinationRole = currentRole ?? (isSignUp ? role : undefined);
 
+      invalidateTokenCache();
       router.replace(callbackURL ?? getDashboardPath(destinationRole));
       router.refresh();
     } catch {
@@ -373,25 +376,45 @@ export function AuthForm({ mode }: AuthFormProps) {
                 >
                   Password
                 </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete={isSignUp ? "new-password" : "current-password"}
-                  minLength={6}
-                  pattern={isSignUp ? "(?=.*[a-z])(?=.*[A-Z]).{6,}" : undefined}
-                  title={
-                    isSignUp
-                      ? "Use at least 6 characters with one uppercase and one lowercase letter."
-                      : undefined
-                  }
-                  required
-                  disabled={isPending}
-                  className="min-h-12 w-full rounded-xl border border-[#e7d9d2] bg-white px-4 text-sm outline-none transition placeholder:text-stone-400 focus:border-wedplan-rose focus:ring-4 focus:ring-[#96575b]/10 disabled:cursor-not-allowed disabled:bg-stone-50"
-                  placeholder={
-                    isSignUp ? "At least 6 characters" : "Your password"
-                  }
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete={
+                      isSignUp ? "new-password" : "current-password"
+                    }
+                    minLength={6}
+                    pattern={
+                      isSignUp ? "(?=.*[a-z])(?=.*[A-Z]).{6,}" : undefined
+                    }
+                    title={
+                      isSignUp
+                        ? "Use at least 6 characters with one uppercase and one lowercase letter."
+                        : undefined
+                    }
+                    required
+                    disabled={isPending}
+                    className="min-h-12 w-full rounded-xl border border-[#e7d9d2] bg-white px-4 pr-12 text-sm outline-none transition placeholder:text-stone-400 focus:border-wedplan-rose focus:ring-4 focus:ring-[#96575b]/10 disabled:cursor-not-allowed disabled:bg-stone-50"
+                    placeholder={
+                      isSignUp ? "At least 6 characters" : "Your password"
+                    }
+                  />
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-wedplan-ink focus:outline-none focus:ring-2 focus:ring-wedplan-rose disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {showPassword ? (
+                      <EyeOff aria-hidden="true" className="h-4 w-4" />
+                    ) : (
+                      <Eye aria-hidden="true" className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 {isSignUp && (
                   <p className="mt-2 text-xs leading-5 text-stone-500">
                     Use at least 6 characters with one uppercase and one

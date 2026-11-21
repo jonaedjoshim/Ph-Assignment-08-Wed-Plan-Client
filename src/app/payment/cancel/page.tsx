@@ -32,7 +32,7 @@ export default function PaymentCancelPage() {
           </p>
 
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-            Your Premium upgrade was not completed
+            Your upgrade was not completed
           </h1>
 
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-stone-600">

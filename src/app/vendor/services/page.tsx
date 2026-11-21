@@ -101,15 +101,29 @@ function getAccountRole(value: unknown): AccountRole | null {
   return null;
 }
 
-function hasActivePremiumSubscription(value: unknown): boolean {
-  if (!isRecord(value) || value.subscriptionPlan !== "premium") {
-    return false;
+type PlanName = "free" | "starter" | "premium";
+
+const PLAN_SERVICE_LIMITS: Record<PlanName, number | null> = {
+  free: 3,
+  starter: 10,
+  premium: null,
+};
+
+function getActivePlan(value: unknown): PlanName {
+  if (!isRecord(value)) {
+    return "free";
+  }
+
+  const plan = value.subscriptionPlan;
+
+  if (plan !== "starter" && plan !== "premium") {
+    return "free";
   }
 
   const expiresAt = value.subscriptionExpiresAt;
 
   if (expiresAt === undefined || expiresAt === null) {
-    return true;
+    return plan;
   }
 
   const expiryTime =
@@ -121,7 +135,7 @@ function hasActivePremiumSubscription(value: unknown): boolean {
           ? expiresAt
           : Number.NaN;
 
-  return Number.isFinite(expiryTime) && expiryTime > Date.now();
+  return Number.isFinite(expiryTime) && expiryTime > Date.now() ? plan : "free";
 }
 
 function isServiceCategory(value: unknown): value is ServiceCategory {
@@ -232,7 +246,8 @@ function VendorServicesContent() {
 
   const userId = session?.user?.id;
   const accountRole = getAccountRole(session?.user);
-  const isPremium = hasActivePremiumSubscription(session?.user);
+  const currentPlan = getActivePlan(session?.user);
+  const serviceLimit = PLAN_SERVICE_LIMITS[currentPlan];
 
   const [retryKey, setRetryKey] = useState(0);
   const [statusFilter, setStatusFilter] = useState<ServiceFilter>("all");
@@ -351,7 +366,8 @@ function VendorServicesContent() {
     (service) => service.status === "pending" || service.status === "approved",
   ).length;
 
-  const canAddService = isPremium || activeServiceCount < 3;
+  const canAddService =
+    serviceLimit === null || activeServiceCount < serviceLimit;
 
   async function handlePremiumCheckout() {
     setBillingAction("checkout");
@@ -362,6 +378,10 @@ function VendorServicesContent() {
       const response = await apiFetch(`${API_BASE_URL}/api/stripe/checkout`, {
         method: "POST",
         credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ plan: "premium" }),
       });
 
       const payload: unknown = await response.json().catch(() => null);
@@ -437,7 +457,7 @@ function VendorServicesContent() {
 
       setCancellationScheduled(true);
       setBillingNotice(
-        "Premium cancellation scheduled. Your premium access remains active until the current billing period ends.",
+        "Plan cancellation scheduled. Your paid access remains active until the current billing period ends.",
       );
     } catch (requestError) {
       setBillingError(
@@ -728,42 +748,59 @@ function VendorServicesContent() {
             <div>
               <p className="text-sm text-stone-600">Subscription</p>
               <p className="mt-2 text-xl font-semibold">
-                {isPremium ? "Premium" : "Free plan"}
+                {currentPlan === "free"
+                  ? "Free plan"
+                  : currentPlan === "starter"
+                    ? "Starter plan"
+                    : "Premium"}
               </p>
             </div>
-            {isPremium && (
+            {currentPlan !== "free" && (
               <Crown aria-hidden="true" className="h-6 w-6 text-amber-500" />
             )}
           </div>
 
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            {isPremium
+            {currentPlan === "premium"
               ? "Your premium plan gives you access to unlimited service listings."
-              : "You can add up to 3 active service listings on the free plan."}
+              : currentPlan === "starter"
+                ? "Your starter plan allows up to 10 active service listings."
+                : "You can add up to 3 active service listings on the free plan."}
           </p>
 
-          {!isPremium && (
-            <button
-              type="button"
-              onClick={() => void handlePremiumCheckout()}
-              disabled={billingAction !== null}
-              className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Crown aria-hidden="true" className="h-4 w-4" />
-              {billingAction === "checkout"
-                ? "Redirecting..."
-                : "Upgrade to premium"}
-            </button>
-          )}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {currentPlan === "free" && (
+              <button
+                type="button"
+                onClick={() => void handlePremiumCheckout()}
+                disabled={billingAction !== null}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Crown aria-hidden="true" className="h-4 w-4" />
+                {billingAction === "checkout"
+                  ? "Redirecting..."
+                  : "Upgrade to premium"}
+              </button>
+            )}
 
-          {isPremium && !cancellationScheduled && (
+            <Link
+              href="/vendor/subscription"
+              className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#e3d4cd] px-5 text-sm font-semibold text-stone-700 transition hover:bg-[#f5eae5]"
+            >
+              Compare plans
+            </Link>
+          </div>
+
+          {currentPlan !== "free" && !cancellationScheduled && (
             <button
               type="button"
               onClick={() => void handleCancelPremium()}
               disabled={billingAction !== null}
               className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-[#e3d4cd] px-5 text-sm font-semibold text-stone-700 transition hover:bg-[#f5eae5] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {billingAction === "cancel" ? "Processing..." : "Cancel premium"}
+              {billingAction === "cancel"
+                ? "Processing..."
+                : "Cancel paid plan"}
             </button>
           )}
 
@@ -799,8 +836,9 @@ function VendorServicesContent() {
             Service limit reached
           </h2>
           <p className="mt-2 text-sm leading-6 text-amber-800">
-            Your free plan allows up to 3 active service listings. Upgrade to
-            premium to add more.
+            {currentPlan === "free"
+              ? "Your free plan allows up to 3 active service listings. Upgrade to Starter or Premium to add more."
+              : `Your ${currentPlan} plan allows up to ${serviceLimit} active service listings.`}
           </p>
         </div>
       )}

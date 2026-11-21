@@ -249,11 +249,16 @@ function ServiceCardSkeleton() {
 
 function ServiceCardSkeletons() {
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <motion.div
+      className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+    >
       {[0, 1, 2].map((item) => (
         <ServiceCardSkeleton key={item} />
       ))}
-    </div>
+    </motion.div>
   );
 }
 

@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { Suspense } from "react";
 import { SiteFooter } from "@/components/footer";
+import { Reveal } from "@/components/reveal";
 import { SiteHeader } from "@/components/site-header";
 
 type WeddingCategory = {
@@ -74,70 +75,79 @@ export default function CategoriesPage() {
       </Suspense>
 
       <main className="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:py-16">
-        <section className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wedplan-rose">
-            Explore by category
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-            Wedding service categories
-          </h1>
-          <p className="mt-4 text-base leading-7 text-stone-600">
-            Pick a category to see approved wedding services from our vendors.
-          </p>
-        </section>
+        <Reveal>
+          <section className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wedplan-rose">
+              Explore by category
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+              Wedding service categories
+            </h1>
+            <p className="mt-4 text-base leading-7 text-stone-600">
+              Pick a category to see approved wedding services from our vendors.
+            </p>
+          </section>
+        </Reveal>
 
         <section
           aria-label="Wedding service categories"
           className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
         >
-          {weddingCategories.map((category) => {
+          {weddingCategories.map((category, index) => {
             const Icon = category.icon;
 
             return (
-              <Link
+              <Reveal
                 key={category.name}
-                href={`/services?category=${encodeURIComponent(category.name)}`}
-                className="group flex flex-col rounded-3xl border border-[#eaded8] bg-white p-6 transition hover:-translate-y-0.5 hover:border-[#d9c4bb] hover:shadow-md"
+                className="h-full"
+                delay={index * 0.06}
               >
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f5eae5] text-wedplan-rose">
-                  <Icon aria-hidden="true" className="h-6 w-6" />
-                </span>
+                <Link
+                  href={`/services?category=${encodeURIComponent(category.name)}`}
+                  className="group flex h-full flex-col rounded-3xl border border-[#eaded8] bg-white p-6 transition hover:-translate-y-0.5 hover:border-[#d9c4bb] hover:shadow-md"
+                >
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f5eae5] text-wedplan-rose">
+                    <Icon aria-hidden="true" className="h-6 w-6" />
+                  </span>
 
-                <h2 className="mt-5 text-lg font-semibold text-wedplan-ink">
-                  {category.name}
-                </h2>
+                  <h2 className="mt-5 text-lg font-semibold text-wedplan-ink">
+                    {category.name}
+                  </h2>
 
-                <p className="mt-2 flex-1 text-sm leading-6 text-stone-600">
-                  {category.description}
-                </p>
+                  <p className="mt-2 flex-1 text-sm leading-6 text-stone-600">
+                    {category.description}
+                  </p>
 
-                <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-wedplan-rose">
-                  Browse services
-                  <ArrowRight
-                    aria-hidden="true"
-                    className="h-4 w-4 transition group-hover:translate-x-0.5"
-                  />
-                </span>
-              </Link>
+                  <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-wedplan-rose">
+                    Browse services
+                    <ArrowRight
+                      aria-hidden="true"
+                      className="h-4 w-4 transition group-hover:translate-x-0.5"
+                    />
+                  </span>
+                </Link>
+              </Reveal>
             );
           })}
         </section>
 
-        <section className="mt-12 flex flex-col items-start justify-between gap-5 rounded-3xl bg-wedplan-rose px-8 py-8 text-white sm:flex-row sm:items-center">
-          <div>
-            <h2 className="text-xl font-semibold">Not sure what you need?</h2>
-            <p className="mt-2 text-sm leading-6 text-white/85">
-              Browse all approved services and filter by price or location.
-            </p>
-          </div>
+        <Reveal delay={0.1}>
+          <section className="mt-12 flex flex-col items-start justify-between gap-5 rounded-3xl bg-wedplan-rose px-8 py-8 text-white sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-xl font-semibold">Not sure what you need?</h2>
+              <p className="mt-2 text-sm leading-6 text-white/85">
+                Browse all approved services and filter by price or location.
+              </p>
+            </div>
 
-          <Link
-            href="/services"
-            className="inline-flex min-h-11 items-center rounded-full bg-white px-6 text-sm font-semibold text-wedplan-rose transition hover:bg-[#f8f2ef]"
-          >
-            Browse all services
-          </Link>
-        </section>
+            <Link
+              href="/services"
+              className="inline-flex min-h-11 items-center rounded-full bg-white px-6 text-sm font-semibold text-wedplan-rose transition hover:bg-[#f8f2ef]"
+            >
+              Browse all services
+            </Link>
+          </section>
+        </Reveal>
       </main>
 
       <SiteFooter />

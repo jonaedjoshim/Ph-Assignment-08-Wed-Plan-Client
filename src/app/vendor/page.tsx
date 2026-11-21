@@ -41,7 +41,7 @@ type VendorDashboard = {
   services: ServiceStats;
   bookings: BookingStats;
   subscription: {
-    plan: "free" | "premium";
+    plan: "free" | "starter" | "premium";
     expiresAt: string | null;
   };
 };
@@ -127,6 +127,7 @@ function isVendorDashboard(value: unknown): value is VendorDashboard {
     isServiceStats(value.services) &&
     isBookingStats(value.bookings) &&
     (value.subscription.plan === "free" ||
+      value.subscription.plan === "starter" ||
       value.subscription.plan === "premium") &&
     isNullableString(value.subscription.expiresAt)
   );
@@ -378,7 +379,24 @@ function VendorDashboardContent() {
     );
   }
 
-  const isPremium = dashboard.subscription.plan === "premium";
+  const currentPlan = dashboard.subscription.plan;
+  const isPaidPlan = currentPlan !== "free";
+  const planLabel =
+    currentPlan === "premium"
+      ? "Premium plan"
+      : currentPlan === "starter"
+        ? "Starter plan"
+        : "Free plan";
+  const planDescription =
+    currentPlan === "premium"
+      ? dashboard.subscription.expiresAt
+        ? `Premium access is active through ${formatDate(dashboard.subscription.expiresAt)}.`
+        : "Premium access is active."
+      : currentPlan === "starter"
+        ? dashboard.subscription.expiresAt
+          ? `Starter access is active through ${formatDate(dashboard.subscription.expiresAt)}. Up to ten active services.`
+          : "Starter plan includes up to ten active services."
+        : "Free plan includes up to three active services.";
 
   return (
     <section className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14">
@@ -412,15 +430,9 @@ function VendorDashboardContent() {
               <Crown aria-hidden="true" className="h-6 w-6" />
             </span>
             <div>
-              <p className="text-sm font-semibold">
-                {isPremium ? "Premium plan" : "Free plan"}
-              </p>
+              <p className="text-sm font-semibold">{planLabel}</p>
               <p className="mt-1 text-sm leading-6 text-stone-600">
-                {isPremium
-                  ? dashboard.subscription.expiresAt
-                    ? `Premium access is active through ${formatDate(dashboard.subscription.expiresAt)}.`
-                    : "Premium access is active."
-                  : "Free plan includes up to three active services."}
+                {planDescription}
               </p>
             </div>
           </div>
@@ -429,7 +441,7 @@ function VendorDashboardContent() {
             href="/vendor/subscription"
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-wedplan-rose px-5 text-sm font-semibold text-white transition hover:brightness-95"
           >
-            {isPremium ? "Manage plan" : "View plans"}
+            {isPaidPlan ? "Manage plan" : "View plans"}
             <ArrowRight aria-hidden="true" className="h-4 w-4" />
           </Link>
         </div>

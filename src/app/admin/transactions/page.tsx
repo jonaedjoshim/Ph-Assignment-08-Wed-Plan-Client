@@ -39,7 +39,7 @@ type AdminTransaction = {
   amountMinorUnits: number;
   currency: string;
   status: TransactionStatus;
-  plan: "premium";
+  plan: "starter" | "premium";
   invoiceNumber: string | null;
   hostedInvoiceUrl: string | null;
   paidAt: string | null;
@@ -145,7 +145,7 @@ function isAdminTransaction(value: unknown): value is AdminTransaction {
     value.amountMinorUnits >= 0 &&
     typeof value.currency === "string" &&
     validStatus &&
-    value.plan === "premium" &&
+    (value.plan === "starter" || value.plan === "premium") &&
     isNullableString(value.invoiceNumber) &&
     isNullableString(value.hostedInvoiceUrl) &&
     isNullableString(value.paidAt) &&
@@ -487,8 +487,8 @@ function AdminTransactionsContent() {
           Transactions
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-          Review Stripe Premium payment records. Payment status is controlled by
-          verified Stripe events and cannot be changed here.
+          Review Stripe subscription payment records. Payment status is
+          controlled by verified Stripe events and cannot be changed here.
         </p>
       </div>
 
@@ -597,8 +597,14 @@ function AdminTransactionsContent() {
                       >
                         {transaction.status === "paid" ? "Paid" : "Failed"}
                       </span>
-                      <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-900">
-                        Premium
+                      <span
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                          transaction.plan === "premium"
+                            ? "bg-amber-100 text-amber-900"
+                            : "bg-sky-100 text-sky-900"
+                        }`}
+                      >
+                        {transaction.plan === "premium" ? "Premium" : "Starter"}
                       </span>
                     </div>
 

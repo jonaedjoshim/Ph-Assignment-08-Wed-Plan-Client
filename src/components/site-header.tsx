@@ -15,6 +15,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { invalidateTokenCache } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 
 type AccountRole = "customer" | "vendor" | "admin";
@@ -287,6 +288,7 @@ export function SiteHeader() {
       }
 
       setIsMenuOpen(false);
+      invalidateTokenCache();
       router.replace("/");
       router.refresh();
     } catch {

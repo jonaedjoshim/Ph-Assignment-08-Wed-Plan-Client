@@ -10,7 +10,8 @@ import { authClient } from "@/lib/auth-client";
 import { apiFetch } from "@/lib/api";
 
 type AccountRole = "customer" | "vendor" | "admin";
-type PlanName = "free" | "premium";
+type PlanName = "free" | "starter" | "premium";
+type PaidPlan = Exclude<PlanName, "free">;
 
 type SubscriptionInfo = {
   plan: PlanName;
@@ -37,10 +38,16 @@ const freeFeatures: PlanFeature[] = [
   { label: "Booking request management" },
 ];
 
+const starterFeatures: PlanFeature[] = [
+  { label: "Up to 10 active services" },
+  { label: "Basic vendor dashboard" },
+  { label: "Booking request management" },
+];
+
 const premiumFeatures: PlanFeature[] = [
   { label: "Unlimited active services" },
   { label: "Premium vendor badge" },
-  { label: "All Free plan features" },
+  { label: "All Starter plan features" },
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -52,7 +59,7 @@ function isNullableString(value: unknown): value is string | null {
 }
 
 function isPlanName(value: unknown): value is PlanName {
-  return value === "free" || value === "premium";
+  return value === "free" || value === "starter" || value === "premium";
 }
 
 function getAccountRole(value: unknown): AccountRole | null {
@@ -145,8 +152,8 @@ function SubscriptionSkeleton() {
       <div className="h-9 w-72 animate-pulse rounded bg-[#eaded8]" />
       <div className="mt-3 h-5 w-96 max-w-full animate-pulse rounded bg-[#f0e8e4]" />
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-2">
-        {[0, 1].map((item) => (
+      <div className="mt-10 grid gap-6 lg:grid-cols-3">
+        {[0, 1, 2].map((item) => (
           <div
             key={item}
             className="h-96 animate-pulse rounded-2xl border border-[#eaded8] bg-white"
@@ -315,7 +322,7 @@ function SubscriptionContent() {
     return () => controller.abort();
   }, [accountRole, isSessionPending, requestKey, requestUrl, router, userId]);
 
-  async function handleUpgrade() {
+  async function handleUpgrade(plan: PaidPlan) {
     if (isCheckingOut) {
       return;
     }
@@ -329,6 +336,7 @@ function SubscriptionContent() {
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ plan }),
       });
 
       const payload: unknown = await response.json().catch(() => null);
@@ -428,7 +436,8 @@ function SubscriptionContent() {
     );
   }
 
-  const isPremium = subscription.plan === "premium";
+  const currentPlan = subscription.plan;
+  const isPaidPlan = currentPlan !== "free";
 
   return (
     <section className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14">
@@ -448,25 +457,71 @@ function SubscriptionContent() {
           Choose your plan
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-600">
-          Free vendors can keep up to three active services. Premium removes
-          that limit.
+          Free vendors can keep up to three active services. Starter raises that
+          to ten, and Premium removes the limit entirely.
         </p>
       </div>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-2">
+      <div className="mt-10 grid gap-6 lg:grid-cols-3">
         <PlanCard
           title="Free Plan"
           price="$0"
           description="Start listing your wedding services at no cost."
           features={freeFeatures}
           highlighted={false}
-          badge={isPremium ? null : "Current plan"}
+          badge={currentPlan === "free" ? "Current plan" : null}
         >
           <p className="text-sm leading-6 text-stone-600">
-            {isPremium
-              ? "Your Premium plan includes everything in the Free plan."
+            {isPaidPlan
+              ? "Your paid plan includes everything in the Free plan."
               : "This is your current plan."}
           </p>
+        </PlanCard>
+
+        <PlanCard
+          title="Starter Plan"
+          price="$10/month"
+          description="List more services as your business grows."
+          features={starterFeatures}
+          highlighted={currentPlan === "starter"}
+          badge={
+            currentPlan === "starter"
+              ? "Current plan"
+              : currentPlan === "free"
+                ? "Most popular"
+                : null
+          }
+        >
+          {currentPlan === "starter" ? (
+            <div className="rounded-xl bg-[#f8f2ef] p-4 text-sm leading-6 text-stone-700">
+              <p className="font-semibold text-wedplan-ink">Starter is active</p>
+              <p className="mt-1">
+                Access is active through {formatDate(subscription.expiresAt)}.
+              </p>
+            </div>
+          ) : currentPlan === "premium" ? (
+            <p className="text-sm leading-6 text-stone-600">
+              Your Premium plan already includes everything in Starter.
+            </p>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => void handleUpgrade("starter")}
+                disabled={isCheckingOut}
+                aria-busy={isCheckingOut}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-wedplan-rose px-6 text-sm font-semibold text-wedplan-rose transition hover:bg-[#f8f2ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wedplan-rose focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Crown aria-hidden="true" className="h-4 w-4" />
+                {isCheckingOut
+                  ? "Opening Stripe Checkout..."
+                  : "Upgrade to Starter"}
+              </button>
+              <p className="mt-3 text-center text-xs leading-5 text-stone-500">
+                Activates after Stripe confirms your payment.
+              </p>
+            </>
+          )}
         </PlanCard>
 
         <PlanCard
@@ -474,10 +529,10 @@ function SubscriptionContent() {
           price="$20/month"
           description="Grow without limits and stand out with a Premium badge."
           features={premiumFeatures}
-          highlighted
-          badge={isPremium ? "Current plan" : "Recommended"}
+          highlighted={currentPlan === "premium"}
+          badge={currentPlan === "premium" ? "Current plan" : null}
         >
-          {isPremium ? (
+          {currentPlan === "premium" ? (
             <div className="rounded-xl bg-[#f8f2ef] p-4 text-sm leading-6 text-stone-700">
               <p className="font-semibold text-wedplan-ink">
                 Premium is active
@@ -490,7 +545,7 @@ function SubscriptionContent() {
             <>
               <button
                 type="button"
-                onClick={handleUpgrade}
+                onClick={() => void handleUpgrade("premium")}
                 disabled={isCheckingOut}
                 aria-busy={isCheckingOut}
                 className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-wedplan-rose px-6 text-sm font-semibold text-white transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wedplan-rose focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"

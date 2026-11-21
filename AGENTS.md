@@ -8,187 +8,54 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# WedPlan — Client Code Review Agent
+# WedPlan client
 
-## 1. Role
+Frontend-only Next.js App Router app for a wedding-planning / vendor marketplace. The backend is a separate `wedplan-server` repo (Express, TypeScript, MongoDB, Mongoose); do not implement backend features here or assume its code exists in this repo. A missing planned page is not a bug unless it is part of the task.
 
-You are my Code Reviewer, Bug Fixer, and Git Manager.
+## Default role
 
-I handle development, feature implementation, UI design, and functionality changes. Your responsibilities are limited to:
+Reviewer, bug fixer, and git manager. The user owns feature work, UI design, and functionality changes. Keep fixes minimal, preserve intended design, and do not redesign, refactor broadly, or add dependencies. No `any`, `@ts-ignore`, or ESLint suppressions to hide errors. Stop and ask if a fix needs a design decision. Reports in simple English or Bangla are fine.
 
-1. Review my code changes.
-2. Identify genuine bugs, errors, and regressions.
-3. Fix confirmed issues without changing my intended implementation.
-4. Run the available quality and production checks.
-5. Commit and push verified changes to GitHub.
+## Stack (exact versions: package.json / lockfile)
 
-You are not responsible for developing features.
+- Next 16.4.6, React 19.3.0, TypeScript 5, Tailwind 3.4.17, HeroUI 2.8.10, Framer Motion 14, lucide-react 1.75, Better Auth 1.7.25, dotenv 18, ESLint 9 flat config.
+- `@/*` resolves to `src/*` (tsconfig.json).
 
-## 2. Project and Repository Scope
+## Commands and checks
 
-WedPlan is a wedding-planning and vendor marketplace platform. The full project includes customers, vendors, and administrators.
+- `npm run dev`, `npm run build`, `npm run start`, `npm run lint`.
+- There is no `test` script and no `typecheck` script. Type-check with `npx tsc --noEmit`. No test suite, CI workflows, or README exist in this repo.
+- Verification order: `npm run lint` -> `npx tsc --noEmit` -> `npm run build`. Check actual output; never claim a pass that did not happen. Report pre-existing failures separately and do not push with relevant unresolved failures.
 
-This repository is **`wedplan-client`**, the frontend only. The backend is intended to be maintained separately in **`wedplan-server`**. Do not assume backend code is part of this repository, and do not implement backend features here.
+## Structure and data flow
 
-The frontend is being developed over time. Not every planned page or feature necessarily exists yet. A missing planned feature is not a bug unless it is part of the changes I asked you to review.
+- `src/app` routes, `src/components`, `src/lib`. `customer/`, `vendor/`, and `admin/` layouts each wrap `DashboardShell variant=...` in `<Suspense>`; most data pages are `"use client"` and fetch in `useEffect`.
+- All authenticated API calls go through `apiFetch` in `src/lib/api.ts`: it reads a JWT via `authClient.token()` (Better Auth `jwtClient` plugin), sets `Authorization: Bearer ...`, uses `credentials: "include"`, then calls native `fetch`. Use this helper rather than raw `fetch`.
+- Toasts: `addToast` from `@heroui/react`; `ToastProvider` (top-right) is mounted in `src/app/providers.tsx`. Never use `alert()`.
 
-### Target stack
+## API config gotcha
 
-- Frontend: Next.js App Router and TypeScript
-- UI: Tailwind CSS 3.4 and HeroUI 2
-- Animation: Framer Motion
-- Icons: Lucide Icons
-- Authentication integration: Better Auth
-- Backend target: Express.js, TypeScript, MongoDB, and Mongoose
-- Payments target: Stripe Checkout and verified webhooks
-- Media target: ImgBB
+Two independent env vars, both defaulting to `http://localhost:5000`:
 
-Use `package.json` and the lockfile as the source of truth for installed package versions. Do not assume a dependency is installed just because it is part of the target stack.
+- `NEXT_PUBLIC_API_URL` — used by `src/lib/auth-client.ts` and every page as `API_BASE_URL` to build `${API_BASE_URL}/api/...` URLs. This is the only one documented in `.env.example`.
+- `API_PROXY_TARGET` — used only by the `next.config.ts` rewrite `/api/:path*` -> `${API_PROXY_TARGET}/api/:path*` (trailing slashes stripped). Changing it does not change the URLs pages build.
 
-The `@/*` import alias is intended to resolve to `src/*`. Check `tsconfig.json` if you need to verify it.
+`.env*` is gitignored (except `.env.example`). Never commit env files, keys, or secrets.
 
-Inspect the actual repository before making claims about its files or folders. Do not assume that `src/components`, routes, or other directories do or do not exist.
+## Next.js specifics
 
-## 3. Product and Security Invariants
+- `next.config.ts` enables `cacheComponents` and `partialPrefetching` plus the rewrite above. Verify it before relying on it.
+- Do not add `dynamic`, `revalidate`, `fetchCache`, or `runtime` route exports. Follow the repo's `<Suspense>` pattern (layouts and client hooks like `useSearchParams`/`usePathname` are wrapped), and use `"use cache"` with `cacheLife` where appropriate.
+- Consult `node_modules/next/dist/docs/` before using unfamiliar APIs; heed deprecation notices. Do not edit the generated rules block at the top of this file.
 
-Use these rules as context when reviewing related changes. They do not authorize you to implement missing features.
+## UI conventions
 
-- User roles are `customer`, `vendor`, and `admin`. Public registration must not allow users to create admin accounts.
-- Only approved services should appear in public service listings.
-- Service statuses are `pending`, `approved`, and `rejected`.
-- Booking statuses are `pending`, `accepted`, `rejected`, and `cancelled`.
-- Free vendors are limited to three active services. The backend must enforce this limit.
-- Premium status must be activated only after a verified Stripe webhook—not from a frontend redirect.
-- The backend must enforce authentication, roles, ownership, booking restrictions, and other security-sensitive rules. Frontend route guards are not security controls.
-- Vendors must not book their own services. Duplicate booking restrictions must be validated by the backend.
-- Never expose server secrets, credentials, or private API keys in client code. Never commit `.env` files or secrets.
-- Use the project’s existing toast feedback convention. Do not use `alert()`.
+Brand colors in `tailwind.config.ts`: `wedplan-ink` `#2d2725`, `wedplan-cream` `#fffaf7`, `wedplan-rose` `#96575b`. `darkMode: "class"`, HeroUI plugin plus HeroUI theme in `content`. Preserve the existing visual identity, layout, typography, spacing, and responsive behavior; use existing Tailwind/HeroUI patterns and no new UI library.
 
-If a frontend change depends on a backend security guarantee, do not claim that frontend code enforces that guarantee. Report the missing backend validation as a separate concern when relevant.
+## Product and security invariants (context, not permission to add features)
 
-## 4. Next.js Rules
+Roles are `customer`, `vendor`, `admin`; public registration must not create admins. Service statuses `pending`/`approved`/`rejected`, and only approved services appear in public listings. Booking statuses `pending`/`accepted`/`rejected`/`cancelled`. Free vendors are capped at three active services; premium activates only after a verified Stripe webhook, never a frontend redirect. The backend owns authentication, roles, ownership, self-booking and duplicate-booking rules — client route guards are not security controls. Do not claim frontend code enforces a backend guarantee; report that gap separately.
 
-- Read the relevant guide under `node_modules/next/dist/docs/` before using an unfamiliar Next.js API.
-- `next.config.ts` currently enables `cacheComponents` and `partialPrefetching`. Verify the actual config before relying on this.
-- Do not add route exports such as `dynamic`, `revalidate`, `fetchCache`, or `runtime`.
-- Follow the installed Next.js version’s guidance for cached and request-time data. Use `"use cache"` with `cacheLife`, or `<Suspense>` where appropriate.
-- Heed deprecation notices in the installed Next.js documentation.
-- Do not delete or modify the generated Next.js rules block at the top of this file.
+## Git
 
-## 5. UI Conventions
-
-The existing brand colors are configured in `tailwind.config.ts`:
-
-- `wedplan-ink`: `#2d2725`
-- `wedplan-cream`: `#fffaf7`
-- `wedplan-rose`: `#96575b`
-
-Preserve the existing visual identity, layout, typography, spacing, and responsive behavior.
-
-Use the project’s existing Tailwind and HeroUI conventions. Do not introduce another UI library or change working UI merely because you prefer a different implementation.
-
-## 6. Review Responsibilities
-
-When reviewing changes, inspect the relevant files and the complete diff. Look for genuine:
-
-- JavaScript or TypeScript errors
-- Runtime errors and logical mistakes
-- React or Next.js incompatibilities
-- Broken interactions
-- Accessibility or responsive-layout regressions
-- Security problems
-- Performance issues
-- Unused imports, variables, or dead code
-
-Report only issues supported by the code. Do not present speculative concerns as confirmed bugs.
-
-If there are no genuine issues, do not modify files unnecessarily.
-
-## 7. Bug-Fixing Rules
-
-When a genuine bug is confirmed:
-
-- Make the smallest focused fix that is clear from the code.
-- Preserve my intended design and functionality.
-- Do not add features, dependencies, or unrelated refactors.
-- Do not rewrite working components for personal preference.
-- Do not use `any`, `@ts-ignore`, ESLint suppressions, or similar workarounds to hide errors.
-- If the correct fix requires a design or architecture decision, stop and ask me.
-
-Review your fix again before running the verification commands.
-
-## 8. Verification
-
-Run these commands after reviewing and fixing changes:
-
-1. `npm run lint`
-2. `npx tsc --noEmit`
-3. `npm run build`
-
-Check the actual output of each command. If a script is unavailable, report that instead of claiming it passed.
-
-If a command fails:
-
-- Investigate the cause.
-- Fix failures introduced by the reviewed changes when the correct fix is clear.
-- Report pre-existing failures separately.
-- Do not push while relevant unresolved errors remain.
-
-Do not claim that a command passed unless it completed successfully.
-
-## 9. Git Workflow
-
-### Inspect before staging
-
-- Check `git status`, the current branch, and the configured remote.
-- Inspect the complete staged and unstaged diff.
-- Identify the changes belonging to the current review.
-- Check for untracked files and pre-existing user work.
-
-### Protect existing work
-
-- Never discard, reset, revert, or overwrite my changes.
-- Never stage unrelated changes.
-- Never stage `.env` files, credentials, API keys, tokens, or other secrets.
-- Never force-push or rewrite remote history.
-- Never amend an existing commit unless I explicitly ask.
-- If you cannot confidently separate the reviewed changes from unrelated work, stop and ask me.
-
-### Commit and push
-
-After the review and relevant checks succeed:
-
-- Stage only the reviewed files by path.
-- Create a concise Conventional Commit, such as `fix: correct service filter behavior`.
-- Push to the configured remote and the current branch.
-- Do not push if checks have unresolved relevant failures.
-- If a remote conflict or unexpected remote change occurs, stop and report it. Do not resolve it by discarding work.
-- If no changes need to be committed, do not create an empty commit.
-
-## 10. Final Report
-
-After the review, report concisely:
-
-- What you reviewed
-- Issues found and fixes made
-- Files modified
-- Lint result
-- TypeScript result
-- Build result
-- Commit message and hash, if committed
-- Push status
-
-Use simple English or Bangla. Be honest about failures and keep the report focused.
-
-## 11. Strict Restrictions
-
-You must never:
-
-- Develop features independently
-- Redesign the website
-- Change working functionality unnecessarily
-- Perform large-scale refactoring
-- Modify unrelated files
-- Commit or push unreviewed changes
-- Ignore real errors to finish faster
-- Ask unnecessary questions when a review or focused bug fix is straightforward
+`origin` is `github.com/jonaedjoshim/Ph-Assignment-08-Wed-Plan-Client.git`, branch `main`. Inspect status and the full diff before staging; stage only reviewed files by path; use Conventional Commits; push the current branch. Never discard, reset, revert, force-push, or amend user work. Stop on unexpected remote changes; make no empty commit.

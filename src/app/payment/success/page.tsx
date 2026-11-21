@@ -32,11 +32,11 @@ export default function PaymentSuccessPage() {
           </p>
 
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-            Thank you for choosing Premium
+            Thank you for upgrading
           </h1>
 
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-stone-600">
-            Stripe is confirming your subscription. Premium access is enabled
+            Stripe is confirming your subscription. Your paid plan is enabled
             only after WedPlan verifies the payment notification. If your
             service page still shows the Free plan, wait briefly and reload it.
           </p>

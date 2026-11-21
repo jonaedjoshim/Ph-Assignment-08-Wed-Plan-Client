@@ -21,7 +21,7 @@ type AdminUser = {
   isBlocked: boolean;
   emailVerified: boolean;
   image: string | null;
-  subscriptionPlan: "free" | "premium";
+  subscriptionPlan: "free" | "starter" | "premium";
   subscriptionExpiresAt: string | null;
   createdAt: string | null;
 };
@@ -70,10 +70,11 @@ const roleStyles: Record<AccountRole, string> = {
   unknown: "bg-stone-200 text-stone-700",
 };
 
-const subscriptionStyles = {
+const subscriptionStyles: Record<AdminUser["subscriptionPlan"], string> = {
   free: "bg-stone-100 text-stone-700",
+  starter: "bg-sky-100 text-sky-900",
   premium: "bg-amber-100 text-amber-900",
-} as const;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -121,6 +122,7 @@ function isAdminUser(value: unknown): value is AdminUser {
     typeof value.emailVerified === "boolean" &&
     validImage &&
     (value.subscriptionPlan === "free" ||
+      value.subscriptionPlan === "starter" ||
       value.subscriptionPlan === "premium") &&
     validExpiry &&
     validCreatedAt
@@ -443,6 +445,65 @@ function AdminUsersContent() {
     }
   }
 
+  async function handleUserRole(user: AdminUser, nextRole: AccountRole) {
+    if (nextRole === "unknown" || nextRole === user.role) {
+      return;
+    }
+
+    setActionUserId(user.id);
+    setActionError(null);
+    setPageNotice("");
+
+    try {
+      const response = await apiFetch(
+        `${API_BASE_URL}/api/admin/users/${encodeURIComponent(user.id)}/role`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ role: nextRole }),
+        },
+      );
+
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (response.status === 401) {
+        router.replace(
+          `/sign-in?callbackURL=${encodeURIComponent("/admin/users")}`,
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(payload) ??
+            `Could not update role (HTTP ${response.status}).`,
+        );
+      }
+
+      if (!isRecord(payload) || payload.success !== true) {
+        throw new Error("The user API returned an unexpected response.");
+      }
+
+      setPageNotice(
+        `${user.name || user.email}'s role was changed to ${formatRole(nextRole)}.`,
+      );
+      setRefreshKey((current) => current + 1);
+    } catch (requestError) {
+      setActionError(
+        requestError instanceof TypeError
+          ? "Could not reach WedPlan API. Check that the server is running and NEXT_PUBLIC_API_URL is correct."
+          : requestError instanceof Error
+            ? requestError.message
+            : "Could not update this role.",
+      );
+    } finally {
+      setActionUserId(null);
+    }
+  }
+
   if (isLoading) {
     return <AdminUsersSkeleton />;
   }
@@ -708,7 +769,8 @@ function AdminUsersContent() {
                     <span
                       className={`rounded-full px-3 py-1.5 text-xs font-semibold ${subscriptionStyles[user.subscriptionPlan]}`}
                     >
-                      {user.subscriptionPlan === "premium" ? "Premium" : "Free"}
+                      {user.subscriptionPlan.charAt(0).toUpperCase() +
+                        user.subscriptionPlan.slice(1)}
                     </span>
                   </div>
                 </div>
@@ -734,10 +796,10 @@ function AdminUsersContent() {
                     </span>
                   </p>
 
-                  {user.subscriptionPlan === "premium" &&
+                  {user.subscriptionPlan !== "free" &&
                     user.subscriptionExpiresAt && (
                       <p className="sm:col-span-2">
-                        Premium expires:{" "}
+                        Plan expires:{" "}
                         <span className="font-medium text-wedplan-ink">
                           {formatDate(user.subscriptionExpiresAt)}
                         </span>
@@ -746,28 +808,51 @@ function AdminUsersContent() {
                 </div>
 
                 <div className="mt-5 border-t border-[#eaded8] pt-5">
-                  <button
-                    type="button"
-                    disabled={isBlockButtonDisabled}
-                    onClick={() => void handleUserStatus(user)}
-                    className={`inline-flex min-h-10 items-center justify-center rounded-full px-5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      user.isBlocked
-                        ? "border border-emerald-200 text-emerald-800 hover:bg-emerald-50"
-                        : "border border-rose-200 text-rose-800 hover:bg-rose-50"
-                    }`}
-                  >
-                    {isWorking
-                      ? user.isBlocked
-                        ? "Unblocking..."
-                        : "Blocking..."
-                      : user.isBlocked
-                        ? "Unblock account"
-                        : "Block account"}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="inline-flex items-center gap-2 text-sm text-stone-600">
+                      Role:
+                      <select
+                        aria-label={`Change role for ${displayName}`}
+                        value={user.role === "unknown" ? "customer" : user.role}
+                        disabled={isWorking || isCurrentUser}
+                        onChange={(event) =>
+                          void handleUserRole(
+                            user,
+                            event.target.value as AccountRole,
+                          )
+                        }
+                        className="min-h-10 rounded-full border border-[#e7d9d2] bg-white px-3 text-sm font-medium text-wedplan-ink outline-none transition focus:border-wedplan-rose focus:ring-4 focus:ring-[#96575b]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="customer">Customer</option>
+                        <option value="vendor">Vendor</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </label>
 
-                  {isCurrentUser && !user.isBlocked && (
+                    <button
+                      type="button"
+                      disabled={isBlockButtonDisabled}
+                      onClick={() => void handleUserStatus(user)}
+                      className={`inline-flex min-h-10 items-center justify-center rounded-full px-5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        user.isBlocked
+                          ? "border border-emerald-200 text-emerald-800 hover:bg-emerald-50"
+                          : "border border-rose-200 text-rose-800 hover:bg-rose-50"
+                      }`}
+                    >
+                      {isWorking
+                        ? user.isBlocked
+                          ? "Unblocking..."
+                          : "Blocking..."
+                        : user.isBlocked
+                          ? "Unblock account"
+                          : "Block account"}
+                    </button>
+                  </div>
+
+                  {isCurrentUser && (
                     <p className="mt-2 text-xs text-stone-500">
-                      You cannot block your own admin account.
+                      You cannot change your own role or block your own admin
+                      account.
                     </p>
                   )}
                 </div>
