@@ -359,13 +359,10 @@ function VendorServicesContent() {
     setBillingNotice("");
 
     try {
-      const response = await apiFetch(
-        `${API_BASE_URL}/api/vendor/subscription/checkout`,
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
+      const response = await apiFetch(`${API_BASE_URL}/api/stripe/checkout`, {
+        method: "POST",
+        credentials: "include",
+      });
 
       const payload: unknown = await response.json().catch(() => null);
 
@@ -385,13 +382,13 @@ function VendorServicesContent() {
 
       if (
         !isRecord(payload) ||
-        typeof payload.checkoutUrl !== "string" ||
-        !isHttpUrl(payload.checkoutUrl)
+        typeof payload.url !== "string" ||
+        !isHttpUrl(payload.url)
       ) {
         throw new Error("The checkout API returned an invalid checkout URL.");
       }
 
-      window.location.assign(payload.checkoutUrl);
+      window.location.assign(payload.url);
     } catch (requestError) {
       setBillingError(
         requestError instanceof TypeError
@@ -411,13 +408,10 @@ function VendorServicesContent() {
     setBillingNotice("");
 
     try {
-      const response = await apiFetch(
-        `${API_BASE_URL}/api/vendor/subscription/cancel`,
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
+      const response = await apiFetch(`${API_BASE_URL}/api/stripe/cancel`, {
+        method: "POST",
+        credentials: "include",
+      });
 
       const payload: unknown = await response.json().catch(() => null);
 
