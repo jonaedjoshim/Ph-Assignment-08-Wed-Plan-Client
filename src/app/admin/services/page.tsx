@@ -23,6 +23,7 @@ type ModerationAction = "approve" | "reject" | "delete";
 type AdminService = {
   _id: string;
   vendorId: string;
+  vendorName?: string;
   serviceName: string;
   category: ServiceCategory;
   description: string;
@@ -118,9 +119,13 @@ function isAdminService(value: unknown): value is AdminService {
   const validCreatedAt =
     value.createdAt === undefined || typeof value.createdAt === "string";
 
+  const validVendorName =
+    value.vendorName === undefined || typeof value.vendorName === "string";
+
   return (
     typeof value._id === "string" &&
     typeof value.vendorId === "string" &&
+    validVendorName &&
     typeof value.serviceName === "string" &&
     isServiceCategory(value.category) &&
     typeof value.description === "string" &&
@@ -756,9 +761,9 @@ function AdminServicesContent() {
                       </p>
 
                       <p className="break-all">
-                        Vendor ID:{" "}
+                        Vendor:{" "}
                         <span className="font-medium text-wedplan-ink">
-                          {service.vendorId}
+                          {service.vendorName ?? service.vendorId}
                         </span>
                       </p>
 
@@ -889,7 +894,6 @@ function AdminServicesContent() {
 export default function AdminServicesPage() {
   return (
     <div className="bg-wedplan-cream text-wedplan-ink">
-
       <main className="min-h-[70vh]">
         <Suspense fallback={<AdminServicesSkeleton />}>
           <AdminServicesContent />
