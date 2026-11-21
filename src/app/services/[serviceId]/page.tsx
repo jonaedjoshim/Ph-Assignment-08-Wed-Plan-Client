@@ -19,7 +19,7 @@ import { apiFetch } from "@/lib/api";
 type ApiVendor = {
   id: string;
   name: string;
-  businessName: string;
+  businessName?: string | null;
   isPremium?: boolean;
 };
 
@@ -110,7 +110,9 @@ function isApiVendor(value: unknown): value is ApiVendor {
   return (
     typeof value.id === "string" &&
     typeof value.name === "string" &&
-    typeof value.businessName === "string" &&
+    (value.businessName === undefined ||
+      value.businessName === null ||
+      typeof value.businessName === "string") &&
     (value.isPremium === undefined || typeof value.isPremium === "boolean")
   );
 }
@@ -257,7 +259,7 @@ function VendorDetails({ vendor }: { vendor: ApiVendor | null | undefined }) {
     );
   }
 
-  const displayName = vendor.businessName.trim() || vendor.name;
+  const displayName = vendor.businessName?.trim() || vendor.name;
 
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-[#eaded8] bg-white p-5">
@@ -267,7 +269,7 @@ function VendorDetails({ vendor }: { vendor: ApiVendor | null | undefined }) {
       <div className="min-w-0">
         <p className="text-sm text-stone-500">Vendor</p>
         <p className="mt-1 truncate text-base font-semibold">{displayName}</p>
-        {vendor.businessName.trim() && vendor.name && (
+        {vendor.businessName?.trim() && vendor.name && (
           <p className="truncate text-sm text-stone-500">{vendor.name}</p>
         )}
         {vendor.isPremium && (
