@@ -264,10 +264,10 @@ function ServiceCardSkeletons() {
 
 export default function ServicesPage() {
   return (
-    <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
+    <div className="flex min-h-screen flex-col bg-wedplan-cream text-wedplan-ink">
       <SiteHeader />
 
-      <main>
+      <main className="flex-1">
         <Suspense fallback={<ServicesLoading />}>
           <ServicesPageContent />
         </Suspense>

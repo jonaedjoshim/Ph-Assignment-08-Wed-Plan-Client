@@ -457,10 +457,10 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-wedplan-cream text-wedplan-ink">
+    <div className="flex min-h-screen flex-col overflow-x-clip bg-wedplan-cream text-wedplan-ink">
       <SiteHeader />
 
-      <main>
+      <main className="flex-1">
         <section className="mx-auto grid max-w-7xl items-center gap-14 px-5 pb-20 pt-14 sm:px-8 md:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:pb-28">
           <motion.div
             initial={{ opacity: 0, y: 16 }}

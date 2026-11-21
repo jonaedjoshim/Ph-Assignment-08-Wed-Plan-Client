@@ -893,8 +893,8 @@ function AdminServicesContent() {
 
 export default function AdminServicesPage() {
   return (
-    <div className="bg-wedplan-cream text-wedplan-ink">
-      <main className="min-h-[70vh]">
+    <div className="flex flex-1 flex-col bg-wedplan-cream text-wedplan-ink">
+      <main className="flex-1">
         <Suspense fallback={<AdminServicesSkeleton />}>
           <AdminServicesContent />
         </Suspense>

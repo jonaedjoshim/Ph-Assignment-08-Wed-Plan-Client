@@ -3,7 +3,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Crown,
-  Heart,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -15,6 +14,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 import { invalidateTokenCache } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 
@@ -301,20 +301,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-[#eaded8]/70 bg-[#fffaf7]/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
-        <Link
-          href="/"
-          aria-label="WedPlan home"
-          onClick={() => setIsMenuOpen(false)}
-          className="flex items-center gap-2.5"
-        >
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-wedplan-rose text-white">
-            <Heart aria-hidden="true" className="h-5 w-5 fill-current" />
-          </span>
-
-          <span className="text-xl font-semibold tracking-tight text-wedplan-ink">
-            Wed<span className="text-wedplan-rose">Plan</span>
-          </span>
-        </Link>
+        <BrandLogo onClick={() => setIsMenuOpen(false)} />
 
         <nav
           aria-label="Main navigation"

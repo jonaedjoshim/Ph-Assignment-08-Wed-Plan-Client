@@ -643,12 +643,12 @@ function ProfileSettingsContent() {
 
 export default function ProfileSettingsPage() {
   return (
-    <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
+    <div className="flex min-h-screen flex-col bg-wedplan-cream text-wedplan-ink">
       <Suspense fallback={<SiteHeaderSkeleton />}>
         <SiteHeader />
       </Suspense>
 
-      <main className="min-h-[70vh]">
+      <main className="flex-1">
         <Suspense fallback={<ProfileSettingsSkeleton />}>
           <ProfileSettingsContent />
         </Suspense>

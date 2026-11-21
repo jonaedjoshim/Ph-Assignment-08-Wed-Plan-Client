@@ -69,12 +69,12 @@ function SiteHeaderSkeleton() {
 
 export default function CategoriesPage() {
   return (
-    <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
+    <div className="flex min-h-screen flex-col bg-wedplan-cream text-wedplan-ink">
       <Suspense fallback={<SiteHeaderSkeleton />}>
         <SiteHeader />
       </Suspense>
 
-      <main className="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:py-16">
+      <main className="mx-auto max-w-7xl flex-1 px-5 py-12 sm:px-8 lg:py-16">
         <Reveal>
           <section className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wedplan-rose">

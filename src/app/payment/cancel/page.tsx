@@ -15,12 +15,12 @@ function SiteHeaderSkeleton() {
 
 export default function PaymentCancelPage() {
   return (
-    <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
+    <div className="flex min-h-screen flex-col bg-wedplan-cream text-wedplan-ink">
       <Suspense fallback={<SiteHeaderSkeleton />}>
         <SiteHeader />
       </Suspense>
 
-      <main className="mx-auto flex min-h-[70vh] max-w-3xl items-center px-5 py-16 sm:px-8">
+      <main className="mx-auto flex flex-1 max-w-3xl items-center px-5 py-16 sm:px-8">
         <section className="w-full rounded-3xl border border-[#eaded8] bg-white p-7 text-center shadow-sm sm:p-10">
           <XCircle
             aria-hidden="true"

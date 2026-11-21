@@ -768,7 +768,7 @@ function VendorServicesContent() {
                 : "You can add up to 3 active service listings on the free plan."}
           </p>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center gap-4">
             {currentPlan === "free" && (
               <button
                 type="button"
@@ -1216,8 +1216,8 @@ function VendorServicesContent() {
 
 export default function VendorServicesPage() {
   return (
-    <div className="bg-wedplan-cream text-wedplan-ink">
-      <main className="min-h-[70vh]">
+    <div className="flex flex-1 flex-col bg-wedplan-cream text-wedplan-ink">
+      <main className="flex-1">
         <Suspense fallback={<ServiceManagementSkeleton />}>
           <VendorServicesContent />
         </Suspense>

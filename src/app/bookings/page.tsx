@@ -728,12 +728,12 @@ function BookingPageContent() {
 
 export default function BookingsPage() {
   return (
-    <div className="min-h-screen bg-wedplan-cream text-wedplan-ink">
+    <div className="flex min-h-screen flex-col bg-wedplan-cream text-wedplan-ink">
       <Suspense fallback={<SiteHeaderSkeleton />}>
         <SiteHeader />
       </Suspense>
 
-      <main className="min-h-[70vh]">
+      <main className="flex-1">
         <Suspense fallback={<BookingPageSkeleton />}>
           <BookingPageContent />
         </Suspense>

@@ -145,7 +145,7 @@ export function DashboardShell({
           <SiteHeader />
         </Suspense>
 
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </div>
     </div>
   );

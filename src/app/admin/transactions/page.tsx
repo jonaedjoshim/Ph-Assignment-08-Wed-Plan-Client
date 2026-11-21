@@ -725,9 +725,9 @@ function AdminTransactionsContent() {
 
 export default function AdminTransactionsPage() {
   return (
-    <div className="bg-wedplan-cream text-wedplan-ink">
+    <div className="flex flex-1 flex-col bg-wedplan-cream text-wedplan-ink">
 
-      <main className="min-h-[70vh]">
+      <main className="flex-1">
         <Suspense fallback={<AdminTransactionsSkeleton />}>
           <AdminTransactionsContent />
         </Suspense>

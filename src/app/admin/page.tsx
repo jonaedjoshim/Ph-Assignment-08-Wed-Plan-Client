@@ -459,9 +459,9 @@ function AdminOverviewContent() {
 
 export default function AdminOverviewPage() {
   return (
-    <div className="bg-wedplan-cream text-wedplan-ink">
+    <div className="flex flex-1 flex-col bg-wedplan-cream text-wedplan-ink">
 
-      <main className="min-h-[70vh]">
+      <main className="flex-1">
         <Suspense fallback={<AdminOverviewSkeleton />}>
           <AdminOverviewContent />
         </Suspense>
